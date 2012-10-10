@@ -18,7 +18,14 @@ executable megaman
   hs-source-dirs:      src
   main-is:             Megaman.hs
   other-modules:       NetHack.Vanilla.MonsterData,
+                       NetHack.Root,
                        NetHack.Algorithms.Dice
   build-depends:       base ==4.5.*,
-                       bytestring == 0.9.*
+                       bytestring == 0.9.*,
+                       unix == 2.6.*,
+                       enumerator == 0.4.*,
+                       transformers == 0.3.*,
+                       stm == 2.4,
+                       containers == 0.4.*,
+                       clock == 0.3
 
