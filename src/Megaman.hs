@@ -1,5 +1,5 @@
 module Main where
-import NetHack.Root
+import NetHack.Brains
 
 import Control.Monad
 import Control.Monad.IO.Class
