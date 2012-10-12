@@ -1,4 +1,4 @@
-module NetHack.Brains(runNetHackBot) where
+module NetHack.Root(runNetHackBot) where
 
 import Prelude hiding (foldl)
 import Data.Foldable(foldl)
@@ -57,7 +57,7 @@ runNetHackBot enumerator iteratee = do
       -- them dies.
       tid <- myThreadId
 
-      forkIO $ finally (brains chan) (killThread tid)
+      forkIO $ finally (runDispatcher chan) (killThread tid)
       return chan)
   E.run_ $ enumerator E.$$ netHackIteratee chan
 
@@ -70,7 +70,7 @@ now = do (TimeSpec sec nsec) <- getTime Monotonic
 
 runDispatcher :: NetHackChan -> IO ()
 runDispatcher chan = do n <- now
-                 loopDispatcher (Dispatcher newGame chan S.empty n)
+                        loopDispatcher (Dispatcher newGame chan S.empty n)
 
 -- What is happening here is that we call runLogic whenever we haven't
 -- received data from the channel after 'graceTime' nanoseconds. That's
