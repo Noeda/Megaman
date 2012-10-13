@@ -15,6 +15,7 @@ import qualified Data.Sequence as S
 import Control.Exception
 import Control.Monad.IO.Class
 import qualified Data.Enumerator as E
+import qualified Data.Enumerator.List as EL
 
 -- To be written
 data NetHackState = NetHackState { terminal :: T.Terminal }
@@ -22,9 +23,11 @@ data NetHackState = NetHackState { terminal :: T.Terminal }
 data NetHackMsg = Closed |
                   Chunk B.ByteString
 type NetHackChan = TChan NetHackMsg
+type NetHackWriteChan = TChan B.ByteString
 
 data Dispatcher = Dispatcher { state :: NetHackState,
                                readChan :: NetHackChan,
+                               writeChan :: NetHackWriteChan,
                                msgQueue :: S.Seq B.ByteString,
                                lastTimeReceived :: Integer }
 
@@ -45,22 +48,28 @@ netHackIteratee chan = E.continue step where
     liftIO $ atomically $ mapM_ (writeTChan chan . Chunk) chunks
     E.continue step
 
-runNetHackBot :: MonadIO m => E.Enumerator B.ByteString m () ->
-                              E.Iteratee B.ByteString m () ->
-                              m ()
+runNetHackBot :: E.Enumerator B.ByteString IO () ->
+                 E.Iteratee B.ByteString IO () ->
+                 IO ()
 runNetHackBot enumerator iteratee = do
-  chan <- liftIO (do
-      chan <- newTChanIO
+  chan <- newTChanIO
+  writerChan <- newTChanIO
 
-      -- Make sure if brains dies, we die too.
-      -- TODO: fork the enumerator/iteratee too and wait here until either of
-      -- them dies.
-      tid <- myThreadId
+  -- Make sure if brains dies, we die too.
+  -- TODO: fork the enumerator/iteratee too and wait here until either of
+  -- them dies.
+  tid <- myThreadId
 
-      forkIO $ finally (runDispatcher chan) (killThread tid)
-      return chan)
+  writertid <- forkIO $ runWriter iteratee writerChan
+  forkIO $ finally (runDispatcher chan writerChan)
+                   (killThread tid >> killThread writertid)
   E.run_ $ enumerator E.$$ netHackIteratee chan
 
+runWriter :: E.Iteratee B.ByteString IO () ->
+             NetHackWriteChan ->
+             IO ()
+runWriter iteratee chan =
+  E.run_ $ EL.repeatM (atomically $ readTChan chan) E.$$ iteratee
 
 now :: IO Integer
 now = do (TimeSpec sec nsec) <- getTime Monotonic
@@ -68,16 +77,17 @@ now = do (TimeSpec sec nsec) <- getTime Monotonic
                               fromIntegral nsec) :: (Integer, Integer)
          return $ isec * 1000000000 + insec
 
-runDispatcher :: NetHackChan -> IO ()
-runDispatcher chan = do n <- now
-                        loopDispatcher (Dispatcher newGame chan S.empty n)
+runDispatcher :: NetHackChan -> NetHackWriteChan -> IO ()
+runDispatcher chan writeChan = do
+  n <- now
+  loopDispatcher (Dispatcher newGame chan writeChan S.empty n)
 
 -- What is happening here is that we call runLogic whenever we haven't
 -- received data from the channel after 'graceTime' nanoseconds. That's
 -- when we assume NetHack has sent as much data as it is going to send for
 -- now.
 loopDispatcher :: Dispatcher -> IO ()
-loopDispatcher d@(Dispatcher game chan msgqueue lastreceived) = do
+loopDispatcher d@(Dispatcher game chan _ msgqueue lastreceived) = do
   n <- now
   chunk <- atomically $ tryReadTChan chan
   case chunk of
@@ -96,7 +106,7 @@ runLogic :: Dispatcher -> IO Dispatcher
 runLogic = runGameLogic . flushMsgQueueToTerminal
 
 flushMsgQueueToTerminal :: Dispatcher -> Dispatcher
-flushMsgQueueToTerminal d@(Dispatcher state _ queue _) =
+flushMsgQueueToTerminal d@(Dispatcher state _ _ queue _) =
   d { state = flush state queue, msgQueue = S.empty } where
 
     flush state queue
@@ -108,5 +118,5 @@ flushMsgQueueToTerminal d@(Dispatcher state _ queue _) =
                            where t = terminal state
 
 runGameLogic :: Dispatcher -> IO Dispatcher
-runGameLogic d@(Dispatcher (NetHackState t) _ _ _) = T.printOut t >> return d
+runGameLogic d@(Dispatcher (NetHackState t) _ _ _ _) = T.printOut t >> return d
 
