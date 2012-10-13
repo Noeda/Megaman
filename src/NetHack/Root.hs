@@ -17,8 +17,8 @@ import Control.Monad.IO.Class
 import qualified Data.Enumerator as E
 import qualified Data.Enumerator.List as EL
 
--- To be written
-data NetHackState = NetHackState { terminal :: T.Terminal }
+import NetHack.Logic
+import NetHack.LogicPlumbing
 
 data NetHackMsg = Closed |
                   Chunk B.ByteString
@@ -34,9 +34,6 @@ data Dispatcher = Dispatcher { state :: NetHackState,
 -- Time to wait after the last received data before running bot AI
 -- (nanoseconds)
 graceTime = 500000000
-
-newGame :: NetHackState
-newGame = NetHackState { terminal = T.emptyTerminal 80 24 }
 
 netHackIteratee :: MonadIO m => NetHackChan ->
                                 E.Iteratee B.ByteString m ()
@@ -118,5 +115,9 @@ flushMsgQueueToTerminal d@(Dispatcher state _ _ queue _) =
                            where t = terminal state
 
 runGameLogic :: Dispatcher -> IO Dispatcher
-runGameLogic d@(Dispatcher (NetHackState t) _ _ _ _) = T.printOut t >> return d
+runGameLogic d@(Dispatcher (NetHackState { terminal = t }) _ _ _ _) =
+  T.printOut t >>
+  putStrLn (showStep root) >>
+  return d
+
 
