@@ -2,5 +2,5 @@
 
 stty cols 80
 stty rows 24
-nethack $@
+exec nethack $@
 
