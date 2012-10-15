@@ -3,71 +3,113 @@
 {-# LANGUAGE ExistentialQuantification #-}
 
 module NetHack.LogicPlumbing
-  (newGame, NHStep, isSomewhereOnScreen, ifIn, ifNotIn, answer,
-   (=+=), (>=+=), NetHackState(NetHackState, terminal), showStep)
+  (NetHackState(terminal),
+   newGame,
+   BAction(),
+   NAction(),
+   hasSinked,
+   isSomewhereOnScreen,
+   cursorIsInside,
+   bailout,
+   ifIn,
+   ifNotIn,
+   (=&&=),
+   (=+=),
+   answer,
+   runSteps)
   where
 
 import qualified Terminal as T
+import Control.Monad.Cont
+import Control.Monad.State
 
-data NetHackState = NetHackState { terminal :: T.Terminal }
+data NetHackState = NetHackState { terminal :: T.Terminal,
+                                   next :: NAction }
 
-newGame :: NetHackState
-newGame = NetHackState { terminal = T.emptyTerminal 80 24 }
+newGame :: NAction -> NetHackState
+newGame = NetHackState (T.emptyTerminal 80 24)
 
-type NHAction a = (NetHackState -> IO (NetHackState, a))
+data BAction = BAction NAction NAction
+                 (NetHackState -> IO (NetHackState, Bool)) |
+               AndAction BAction BAction |
+               OrAction BAction BAction |
+               NotAction BAction
+data NAction = IfAction BAction NAction NAction |
+               SeqAction NAction NAction |
+               AnswerAction Char |
+               SinkAction
 
--- Action is currently just like IO monad. Might be more sophisticated in
--- the future. At the moment, its purpose is to forbid mixing IO operations
--- in code with NetHack actions. (liftIO has to be used)
-data NHStep a = Nop a |
-                Action (NHAction a) |
-                Conditional (NHStep Bool) (NHStep ()) |
-                Sequence (NHStep ()) (NHStep a) |
-                Answer Char |
-                ScreenCheck String |
-                forall b. BoundSequence (NHStep b) (b -> NHStep a)
+hasSinked :: NetHackState -> Bool
+hasSinked (NetHackState { next = n }) = isSinkAction n
+  where
+    isSinkAction SinkAction = True
+    isSinkAction _          = False
 
-instance Functor NHStep where
-  fmap f (Nop x) = Nop (f x)
-  fmap f (Sequence step1 step2) = Sequence step1 (fmap f step2)
-  fmap _ (Answer ch) = Answer ch
-  fmap _ (ScreenCheck str) = ScreenCheck str
-  fmap _ (Conditional step1 step2) = Conditional step1 step2
-  fmap f (BoundSequence step1 fstep2) = BoundSequence step1
-                                          (\r -> fmap f $ fstep2 r)
 
-ifIn :: NHStep Bool -> NHStep () -> NHStep ()
-ifIn test action = Conditional test action
+cursorIsInside :: (Int, Int) -> (Int, Int) -> BAction
+cursorIsInside lefttop rightbottom =
+  BAction SinkAction
+          SinkAction
+          (\ns -> return $ (ns, T.cursorIsInside lefttop rightbottom
+                                                 (terminal ns)))
 
-ifNotIn :: NHStep Bool -> NHStep () -> NHStep ()
-ifNotIn test action = Conditional (test >=+= \result -> Nop (not result))
-                                  action
+isSomewhereOnScreen :: String -> BAction
+isSomewhereOnScreen str =
+  BAction SinkAction
+          SinkAction
+          (\ns -> return $ (ns, T.isSomewhereOnScreen str (terminal ns)))
 
-isSomewhereOnScreen :: String -> NHStep Bool
-isSomewhereOnScreen str = ScreenCheck str
+ifIn :: BAction -> NAction -> NAction
+ifIn bac dothis = IfAction bac dothis SinkAction
 
-answer :: Char -> NHStep ()
-answer ch = Answer ch
+ifNotIn :: BAction -> NAction -> NAction
+ifNotIn bac1 dothis =
+  IfAction (NotAction bac1) dothis SinkAction
 
-voidStep :: NHStep a -> NHStep ()
-voidStep action = fmap (\_ -> ()) action
+(=&&=) :: BAction -> BAction -> BAction
+(=&&=) = AndAction
 
-(=+=) :: NHStep a -> NHStep b -> NHStep b
-(=+=) step1 step2 = Sequence (voidStep step1) step2
+(=~=) :: BAction -> BAction
+(=~=) = NotAction
 
-(>=+=) :: NHStep a -> (a -> NHStep b) -> NHStep b
-(>=+=) step1 fstep2 =
-  BoundSequence step1 fstep2
+(=||=) :: BAction -> BAction -> BAction
+(=||=) = OrAction
 
--- For debugging
-showStep :: Show a => NHStep a -> String
-showStep (Nop a) = "Nop " ++ show a
-showStep (Action ac) = "NHAction <unviewable>"
-showStep (Sequence ac1 ac2) = "[" ++ showStep ac1 ++ "," ++ showStep ac2 ++ "]"
-showStep (Answer ch) = "Answer " ++ show ch
-showStep (ScreenCheck str) = "ScreenCheck " ++ show str
-showStep (BoundSequence _ _) = 
-  "BoundSequence <unviewable>"
-showStep (Conditional test result) =
-  "Conditional {" ++ showStep test ++ "} -> {" ++ showStep result ++ "}"
+(=+=) :: NAction -> NAction -> NAction
+(=+=) = SeqAction
+
+answer :: Char -> NAction
+answer = AnswerAction
+
+bailout :: String -> NAction
+bailout _ = SinkAction
+
+runSteps :: NetHackState -> IO (NetHackState, Maybe Char)
+runSteps ns = runAction (ns { next = SinkAction }) (next ns)
+
+runAction :: NetHackState -> NAction -> IO (NetHackState, Maybe Char)
+runAction ns SinkAction = return (ns, Nothing)
+runAction ns (AnswerAction ch) = return (ns, Just ch)
+runAction ns (SeqAction ac1 ac2) = do
+  (ns2, ch) <- runAction ns ac1
+  case ch of
+    Nothing -> runAction ns2 ac2
+    Just  _ -> return (ns2 { next = SeqAction (next ns2) ac2 }, ch)
+runAction ns (IfAction (OrAction bac1 bac2) ac acelse) =
+  runAction ns (IfAction bac1 ac (IfAction bac2 ac acelse))
+runAction ns (IfAction (AndAction bac1 bac2) ac acelse) =
+  runAction ns (IfAction bac1 (IfAction bac2 ac acelse) acelse)
+runAction ns (IfAction (NotAction b) ac2 acelse) =
+  runAction ns (IfAction b acelse ac2)
+runAction ns (IfAction (BAction ac1 cleanup payload) ac2 acelse) = do
+  (ns2, ch) <- runAction ns ac1
+  case ch of
+    Nothing -> do (ns3, result) <- payload ns2
+                  if result then runAction ns3 (SeqAction cleanup ac2)
+                            else runAction ns3 (SeqAction cleanup acelse)
+    Just _  -> return (ns2 { next = IfAction
+                                      (BAction (next ns2) cleanup payload)
+                                      ac2
+                                      acelse },
+                       ch)
 

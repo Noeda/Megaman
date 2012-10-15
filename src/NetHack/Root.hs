@@ -77,7 +77,7 @@ now = do (TimeSpec sec nsec) <- getTime Monotonic
 runDispatcher :: NetHackChan -> NetHackWriteChan -> IO ()
 runDispatcher chan writeChan = do
   n <- now
-  loopDispatcher (Dispatcher newGame chan writeChan S.empty n)
+  loopDispatcher (Dispatcher (newGame root) chan writeChan S.empty n)
 
 -- What is happening here is that we call runLogic whenever we haven't
 -- received data from the channel after 'graceTime' nanoseconds. That's
@@ -115,9 +115,13 @@ flushMsgQueueToTerminal d@(Dispatcher state _ _ queue _) =
                            where t = terminal state
 
 runGameLogic :: Dispatcher -> IO Dispatcher
-runGameLogic d@(Dispatcher (NetHackState { terminal = t }) _ _ _ _) =
-  T.printOut t >>
-  putStrLn (showStep root) >>
-  return d
+runGameLogic d@(Dispatcher ns _ wchan _ _) = do
+  (ns2, ch) <- runSteps ns
+  case ch of
+    Nothing -> return ()
+    Just ch -> atomically $ writeTChan wchan (B.pack [ch])
+  T.printOut (terminal ns)
+  if hasSinked ns2 then putStrLn "AI has sinked." else return ()
+  return d { state = ns2 }
 
 

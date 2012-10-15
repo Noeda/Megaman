@@ -29,7 +29,7 @@ slaveProcess slave = do
   mapM_ (dupTo slave) fds
   closeFd slave
   -- How to set controlling terminal? How do I get ioctl(TIOCSCTTY, 1)?
-  void $ executeFile "nethack" True ["-u", "Megaman"] Nothing
+  void $ executeFile "./nethack80x24.sh" False ["-u", "Megaman"] Nothing
 
 runNetHackInFd :: Fd -> IO ()
 runNetHackInFd master = do

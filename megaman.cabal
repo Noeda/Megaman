@@ -33,6 +33,7 @@ executable megaman
                        enumerator == 0.4.*,
                        transformers == 0.3.*,
                        stm == 2.4,
+                       mtl == 2.1.*,
                        array == 0.4.*,
                        containers == 0.5.*,
                        clock == 0.3

@@ -1,4 +1,6 @@
-module Terminal(Terminal, emptyTerminal, handleChar, printOut) where
+module Terminal(Terminal, emptyTerminal, isSomewhereOnScreen,
+                cursorIsInside,
+                handleChar, printOut) where
 
 import Data.Char
 import Data.Array
@@ -7,6 +9,7 @@ import Control.Monad.ST
 import Data.Array.ST
 import Data.Array.MArray
 import Data.Maybe
+import Data.List(isInfixOf)
 
 type TerminalArray = Array (Int, Int) Elem
 type STTerminalArray s = ST s (STArray s (Int, Int) Elem)
@@ -266,6 +269,26 @@ clearLine t y = t { elements = clearElemLine elems y }
                                (mapM_ (\x -> writeArray marr (x, y)
                                                (currentElem t)) [1..w])
                                freeze marr
+
+yLineToStr :: Int -> Terminal -> String
+yLineToStr row t =
+  foldr (++) [] (map string [elems ! (x, row) | x <- [1..w]])
+  where
+    w = width t
+    elems = elements t
+
+isSomewhereOnScreen :: String -> Terminal -> Bool
+isSomewhereOnScreen str t =
+  any (\y -> isInfixOf str (yLineToStr y t)) [1..h]
+  where
+    h = height t
+
+cursorIsInside :: (Int, Int) -> (Int, Int) -> Terminal -> Bool
+cursorIsInside (left, top) (right, bottom) t =
+  left <= x && top <= y && right >= x && bottom >= y
+  where
+    x = cx t
+    y = cy t
 
 -- For debugging
 printOut :: Terminal -> IO ()
