@@ -292,9 +292,15 @@ cursorIsInside (left, top) (right, bottom) t =
 
 -- For debugging
 printOut :: Terminal -> IO ()
-printOut t@(Terminal { elements = elems }) =
-    mapM_ (\y -> (mapM_ (\x -> putStr (string (elems ! (x, y)))) [1..w]) >>
+printOut t@(Terminal { elements = elems }) = do
+    mapM_ (\x -> putChar '-') [1..(w+2)]
+    putChar '\n'
+    mapM_ (\y -> putChar '|' >>
+                 (mapM_ (\x -> putStr (string (elems ! (x, y)))) [1..w]) >>
+                 putChar '|' >>
                  putChar '\n') [1..h]
+    mapM_ (\x -> putChar '-') [1..(w+2)]
+    putChar '\n'
     where
       w = width t
       h = height t
