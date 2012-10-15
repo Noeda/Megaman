@@ -152,9 +152,8 @@ type Consumer = Terminal -> Char -> Terminal
 
 consumeCSI :: Consumer
 consumeCSI t ch
-  | isDigit ch    = consumeNumberSequence applyCSI t ch
   | ch == '?'     = t { consumer = consumeQuestionCSI }
-  | otherwise     = t { consumer = baseConsumer }
+  | otherwise     = consumeNumberSequence applyCSI t ch
 
 consumeQuestionCSI :: Consumer
 consumeQuestionCSI = consumeNumberSequence applyQuestionCSI
@@ -192,7 +191,44 @@ applyCSI a1 a2 a3 = (applyCSI2 a1 a2 a3) { consumer = baseConsumer }
     applyCSI2 [row,column] t 'H' = t { cx = column, cy = row }
     applyCSI2 [row] t 'H' = t { cx = 1, cy = row }
     applyCSI2 _ t 'H' = t { cx = 1, cy = 1 }
+    applyCSI2 (1:_) t 'K' = eraseLeft t
+    applyCSI2 (2:_) t 'K' = eraseLeftAndRight t
+    applyCSI2 _ t 'K'     = eraseRight t
+    applyCSI2 [x] t 'C'   = t { cx = min w (cx1 + x) }
+    applyCSI2 _ t 'C'     = t { cx = min w (cx1 + 1) }
     applyCSI2 xs t ch = error $ (show xs) ++ (show ch)
+
+    cx1 = cx a2
+    w = width a2
+
+eraseFromList :: Terminal -> [(Int, Int)] -> Terminal
+eraseFromList t indices =
+  t { elements = newElems }
+  where
+    newElems =
+      runST $ do marr <- thaw elems :: STTerminalArray s
+                 mapM_ (\(x, y) -> writeArray marr (x, y) curElem) indices
+                 freeze marr
+    elems = elements t
+    w = width t
+    h = height t
+    curElem = currentElem t
+
+eraseLeft :: Terminal -> Terminal
+eraseLeft t = eraseFromList t [(x, cy1) | x <- [1..cx1]]
+  where
+    cy1 = cy t
+    cx1 = cx t
+
+eraseRight :: Terminal -> Terminal
+eraseRight t = eraseFromList t [(x, cy1) | x <- [cx1..w]]
+  where
+    cy1 = cy t
+    cx1 = cx t
+    w = width t
+
+eraseLeftAndRight :: Terminal -> Terminal
+eraseLeftAndRight = eraseLeft . eraseRight
 
 eraseBelow :: Terminal -> Terminal
 eraseBelow t@(Terminal { elements = elems, cx = x, cy = y }) =
