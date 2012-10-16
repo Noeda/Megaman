@@ -1,4 +1,5 @@
-module Terminal(Terminal, emptyTerminal, isSomewhereOnScreen,
+module Terminal(Terminal(), emptyTerminal, isSomewhereOnScreen,
+                isSomewhereOnScreenPos, strAt, width, height,
                 cursorIsInside, captureString, captureInteger,
                 handleChar, printOut) where
 
@@ -9,7 +10,7 @@ import Control.Monad.ST
 import Data.Array.ST
 import Data.Array.MArray
 import Data.Maybe
-import Data.List(isInfixOf)
+import Data.List(isPrefixOf)
 
 import Safe
 
@@ -326,11 +327,27 @@ yLineToStr row t =
     w = width t
     elems = elements t
 
+isSomewhereOnScreenPos :: String -> Terminal -> [(Int, Int)]
+isSomewhereOnScreenPos str t =
+  -- FIXME: inefficient. Can be sped up for common cases.
+  foldl (\result x -> foldl (\result y -> matchesStringAt result x y) result
+                            [1..h])
+        [] [1..w]
+  where
+    w = width t
+    h = height t
+    elems = elements t
+    matchesStringAt result x y =
+      let pstr = foldr (++) [] (map string [elems ! (x1, y) | x1 <- [x..w]])
+       in if isPrefixOf str pstr
+             then (x,y):result
+             else result
+
 isSomewhereOnScreen :: String -> Terminal -> Bool
 isSomewhereOnScreen str t =
-  any (\y -> isInfixOf str (yLineToStr y t)) [1..h]
-  where
-    h = height t
+  case isSomewhereOnScreenPos str t of
+    []      -> False
+    _       -> True
 
 linesOf :: (Int, Int) -> (Int, Int) -> Terminal -> [String]
 linesOf (left, top) (right, bottom) t =
@@ -400,4 +417,7 @@ printOut t@(Terminal { elements = elems }) = do
     where
       w = width t
       h = height t
+
+strAt :: (Int, Int) -> Terminal -> String
+strAt (x, y) (Terminal { elements = elems }) = string $ elems ! (x,y)
 

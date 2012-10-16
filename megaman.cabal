@@ -24,7 +24,10 @@ executable megaman
 
                        NetHack.Combo,
                        NetHack.Alignment,
+                       NetHack.Screens,
+                       NetHack.LevelLogic,
                        NetHack.Logic,
+                       NetHack.More,
                        NetHack.LogicPlumbing
 
   build-depends:       base ==4.6.*,

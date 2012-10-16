@@ -6,6 +6,9 @@ module NetHack.LogicPlumbing
   (NetHackState(terminal, currentLevel),
    newGame,
    boolAction,
+   boolAction2,
+   boolAction_,
+   boolAction2_,
    sinkAction,
    BAction(),
    NAction(),
@@ -14,6 +17,7 @@ module NetHack.LogicPlumbing
    isSomewhereOnScreen,
    repeatUntilNoAnswer,
    cursorIsInside,
+   messages,
    bailout,
    ifIn,
    ifNotIn,
@@ -29,13 +33,16 @@ import qualified Terminal as T
 import Control.Monad.Cont
 import Control.Monad.State
 
+import NetHack.More
+
 data NetHackState = NetHackState {
                                    currentLevel :: Int,
                                    terminal :: T.Terminal,
+                                   messages :: [String],
                                    next :: NAction }
 
 newGame :: NAction -> NetHackState
-newGame = NetHackState 1 (T.emptyTerminal 80 24)
+newGame = NetHackState 1 (T.emptyTerminal 80 24) []
 
 data NActionReturn = Answer Char |
                      Bailout String
@@ -56,6 +63,20 @@ boolAction :: NAction -> NAction ->
               (NetHackState -> IO (NetHackState, Bool)) ->
               BAction
 boolAction = BAction
+
+boolAction2 :: NAction -> NAction ->
+               (NetHackState -> Bool) ->
+               BAction
+boolAction2 ac1 ac2 fun = BAction ac1 ac2 $
+  (\ns -> return $ (ns, (fun ns)))
+
+boolAction_ :: (NetHackState -> IO (NetHackState, Bool)) ->
+               BAction
+boolAction_ = BAction SinkAction SinkAction
+
+boolAction2_ :: (NetHackState -> Bool) ->
+                BAction
+boolAction2_ = boolAction2 SinkAction SinkAction
 
 repeatUntilNoAnswer :: NAction -> NAction
 repeatUntilNoAnswer = RepeatUntilNoAnswer
@@ -110,7 +131,9 @@ bailout :: String -> NAction
 bailout = BailoutAction
 
 runSteps :: NetHackState -> IO (NetHackState, Maybe NActionReturn)
-runSteps ns = runAction (ns { next = SinkAction }) (next ns)
+runSteps ns = runAction (ns { next = SinkAction,
+                              messages = stripMessages (terminal ns) })
+                        (next ns)
 
 runAction :: NetHackState -> NAction -> IO (NetHackState, Maybe NActionReturn)
 runAction ns SinkAction = return (ns, Nothing)

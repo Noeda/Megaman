@@ -19,6 +19,7 @@ import qualified Data.Enumerator.List as EL
 
 import NetHack.Logic
 import NetHack.LogicPlumbing
+import NetHack.More
 
 data NetHackMsg = Closed |
                   Chunk B.ByteString
@@ -120,9 +121,11 @@ runGameLogic d@(Dispatcher ns _ wchan _ _) = do
   T.printOut (terminal ns2)
   case ch of
     Nothing -> return ()
-    Just (Answer ch) -> atomically $ writeTChan wchan (B.pack [ch])
+    Just (Answer ch) -> do (atomically $ writeTChan wchan (B.pack [ch]))
+                           putStrLn $ "Answering " ++ [ch]
     Just (Bailout str) -> putStrLn $ "AI has bailed out: " ++ str
   putStrLn $ "LEVEL: " ++ show (currentLevel ns)
+  putStrLn $ show $ messages ns2
   if hasSinked ns2 then putStrLn "AI has sinked." else return ()
   return d { state = ns2 }
 
