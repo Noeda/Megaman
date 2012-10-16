@@ -17,6 +17,7 @@ import Control.Monad.IO.Class
 import qualified Data.Enumerator as E
 import qualified Data.Enumerator.List as EL
 
+import NetHack.State
 import NetHack.Logic
 import NetHack.LogicPlumbing
 import NetHack.More
@@ -124,7 +125,7 @@ runGameLogic d@(Dispatcher ns _ wchan _ _) = do
     Just (Answer ch) -> do (atomically $ writeTChan wchan (B.pack [ch]))
                            putStrLn $ "Answering " ++ [ch]
     Just (Bailout str) -> putStrLn $ "AI has bailed out: " ++ str
-  putStrLn $ "LEVEL: " ++ show (currentLevel ns)
+  putStrLn $ "Level ID: " ++ show (levelId . currentLevel $ ns)
   putStrLn $ show $ messages ns2
   if hasSinked ns2 then putStrLn "AI has sinked." else return ()
   return d { state = ns2 }

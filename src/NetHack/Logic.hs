@@ -1,6 +1,7 @@
 module NetHack.Logic(root) where
 
 import NetHack.LevelLogic
+import NetHack.LevelPlumbing
 import NetHack.LogicPlumbing
 import NetHack.Combo
 import NetHack.Alignment

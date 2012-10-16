@@ -22,10 +22,14 @@ executable megaman
                        NetHack.Algorithms.Dice,
                        Terminal,
 
+                       NetHack.State,
                        NetHack.Combo,
                        NetHack.Alignment,
                        NetHack.Screens,
+                       NetHack.Monster,
+                       NetHack.Item,
                        NetHack.LevelLogic,
+                       NetHack.LevelPlumbing,
                        NetHack.Logic,
                        NetHack.More,
                        NetHack.LogicPlumbing

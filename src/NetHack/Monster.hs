@@ -1,0 +1,3 @@
+module NetHack.Monster where
+
+

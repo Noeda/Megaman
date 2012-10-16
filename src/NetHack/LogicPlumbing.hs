@@ -34,30 +34,13 @@ import Control.Monad.Cont
 import Control.Monad.State
 
 import NetHack.More
-
-data NetHackState = NetHackState {
-                                   currentLevel :: Int,
-                                   terminal :: T.Terminal,
-                                   messages :: [String],
-                                   next :: NAction }
+import NetHack.State
+import NetHack.LevelLogic
 
 newGame :: NAction -> NetHackState
-newGame = NetHackState 1 (T.emptyTerminal 80 24) []
-
-data NActionReturn = Answer Char |
-                     Bailout String
-
-data BAction = BAction NAction NAction
-                 (NetHackState -> IO (NetHackState, Bool)) |
-               AndAction BAction BAction |
-               OrAction BAction BAction |
-               NotAction BAction
-data NAction = IfAction BAction NAction NAction |
-               SeqAction NAction NAction |
-               StepOutAction NActionReturn |
-               RepeatUntilNoAnswer NAction |
-               SinkAction |
-               BailoutAction String
+newGame = NetHackState level (T.emptyTerminal 80 24) [] 1
+          where
+            (level, _) = newLevel 0
 
 boolAction :: NAction -> NAction ->
               (NetHackState -> IO (NetHackState, Bool)) ->

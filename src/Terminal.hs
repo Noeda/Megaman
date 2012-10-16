@@ -1,6 +1,8 @@
 module Terminal(Terminal(), emptyTerminal, isSomewhereOnScreen,
                 isSomewhereOnScreenPos, strAt, width, height,
+                Attributes(foreground, background, bold, inverse),
                 cursorIsInside, captureString, captureInteger,
+                Color(..),
                 handleChar, printOut) where
 
 import Data.Char
