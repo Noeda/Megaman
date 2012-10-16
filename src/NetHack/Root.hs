@@ -117,10 +117,11 @@ flushMsgQueueToTerminal d@(Dispatcher state _ _ queue _) =
 runGameLogic :: Dispatcher -> IO Dispatcher
 runGameLogic d@(Dispatcher ns _ wchan _ _) = do
   (ns2, ch) <- runSteps ns
+  T.printOut (terminal ns2)
   case ch of
     Nothing -> return ()
     Just (Answer ch) -> atomically $ writeTChan wchan (B.pack [ch])
-  T.printOut (terminal ns)
+    Just (Bailout str) -> putStrLn $ "AI has bailed out: " ++ str
   putStrLn $ "LEVEL: " ++ show (currentLevel ns)
   if hasSinked ns2 then putStrLn "AI has sinked." else return ()
   return d { state = ns2 }

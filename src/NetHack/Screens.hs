@@ -15,3 +15,7 @@ restoringSave = isSomewhereOnScreen "Restoring save file..."
 gameScreen = cursorIsInside (1, 2) (80, 22) =&&=
              ((=~=) morePrompt)
 
+welcomeBackToNetHack = isSomewhereOnScreen ", welcome to NetHack!" =||=
+                       isSomewhereOnScreen ", welcome back to NetHack!"
+
+

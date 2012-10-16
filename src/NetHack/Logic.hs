@@ -27,7 +27,7 @@ startCharacter combo =
   ifIn pickTheGender    (answer gender1)    =+=
   ifIn pickTheAlignment (answer alignment1) =+=
 
-  ifIn itIsWrittenInTheBook space           =+=
+  skipMores                                 =+=
 
   ifNotIn gameScreen (bailout "I was not able to pick a character.")
 
@@ -36,7 +36,6 @@ startCharacter combo =
     race1 = raceLetter $ race combo
     gender1 = genderLetter $ gender combo
     alignment1 = alignmentLetter $ alignment combo
-    space = answer ' '
 
 -- Explores the dungeon level as specified by an integer.
 -- If the player is not the level, then the bot will attempt to get there
@@ -45,4 +44,15 @@ exploreLevel :: Int -> NAction
 exploreLevel level =
   ifNotIn (isCurrentLevel level) sinkAction =+=
   bailout "I would explore now if I knew how to do it"
+
+harmlessMores :: [BAction]
+harmlessMores = [itIsWrittenInTheBook, welcomeBackToNetHack]
+
+skipMores :: NAction
+skipMores =
+  repeatUntilNoAnswer $
+    foldr (\bac naction -> naction =+= ifIn (bac =&&= morePrompt) space)
+          sinkAction harmlessMores
+    where
+      space = answer ' '
 

@@ -9,9 +9,10 @@ module NetHack.LogicPlumbing
    sinkAction,
    BAction(),
    NAction(),
-   NActionReturn(Answer),
+   NActionReturn(Answer, Bailout),
    hasSinked,
    isSomewhereOnScreen,
+   repeatUntilNoAnswer,
    cursorIsInside,
    bailout,
    ifIn,
@@ -37,7 +38,7 @@ newGame :: NAction -> NetHackState
 newGame = NetHackState 1 (T.emptyTerminal 80 24)
 
 data NActionReturn = Answer Char |
-                     PlanCancel
+                     Bailout String
 
 data BAction = BAction NAction NAction
                  (NetHackState -> IO (NetHackState, Bool)) |
@@ -47,12 +48,17 @@ data BAction = BAction NAction NAction
 data NAction = IfAction BAction NAction NAction |
                SeqAction NAction NAction |
                StepOutAction NActionReturn |
-               SinkAction
+               RepeatUntilNoAnswer NAction |
+               SinkAction |
+               BailoutAction String
 
 boolAction :: NAction -> NAction ->
               (NetHackState -> IO (NetHackState, Bool)) ->
               BAction
 boolAction = BAction
+
+repeatUntilNoAnswer :: NAction -> NAction
+repeatUntilNoAnswer = RepeatUntilNoAnswer
 
 sinkAction :: NAction
 sinkAction = SinkAction
@@ -60,8 +66,9 @@ sinkAction = SinkAction
 hasSinked :: NetHackState -> Bool
 hasSinked (NetHackState { next = n }) = isSinkAction n
   where
-    isSinkAction SinkAction = True
-    isSinkAction _          = False
+    isSinkAction SinkAction        = True
+    isSinkAction (BailoutAction _) = True
+    isSinkAction _                 = False
 
 
 cursorIsInside :: (Int, Int) -> (Int, Int) -> BAction
@@ -100,14 +107,16 @@ answer :: Char -> NAction
 answer = StepOutAction . Answer
 
 bailout :: String -> NAction
-bailout _ = SinkAction
+bailout = BailoutAction
 
 runSteps :: NetHackState -> IO (NetHackState, Maybe NActionReturn)
 runSteps ns = runAction (ns { next = SinkAction }) (next ns)
 
 runAction :: NetHackState -> NAction -> IO (NetHackState, Maybe NActionReturn)
 runAction ns SinkAction = return (ns, Nothing)
-runAction ns (StepOutAction ac) = return (ns, Just ac)
+runAction ns b@(BailoutAction str) = return (ns { next = b },
+                                             Just $ Bailout str)
+runAction ns (StepOutAction ac) = return (ns { next = SinkAction }, Just ac)
 runAction ns (SeqAction ac1 ac2) = do
   (ns2, ch) <- runAction ns ac1
   case ch of
@@ -131,4 +140,9 @@ runAction ns (IfAction (BAction ac1 cleanup payload) ac2 acelse) = do
                                       ac2
                                       acelse },
                        ch)
+runAction ns r@(RepeatUntilNoAnswer ac) = do
+  (ns2, ch) <- runAction ns ac
+  case ch of
+    Nothing -> return (ns2, Nothing)
+    Just  _ -> return (ns2 { next = SeqAction (next ns2) r }, ch)
 
