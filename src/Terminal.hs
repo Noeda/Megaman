@@ -1,5 +1,5 @@
 module Terminal(Terminal, emptyTerminal, isSomewhereOnScreen,
-                cursorIsInside,
+                cursorIsInside, captureString, captureInteger,
                 handleChar, printOut) where
 
 import Data.Char
@@ -10,6 +10,11 @@ import Data.Array.ST
 import Data.Array.MArray
 import Data.Maybe
 import Data.List(isInfixOf)
+
+import Safe
+
+import Text.Regex.TDFA.String as R
+import Text.Regex.Base.RegexLike as RL
 
 type TerminalArray = Array (Int, Int) Elem
 type STTerminalArray s = ST s (STArray s (Int, Int) Elem)
@@ -196,10 +201,18 @@ applyCSI a1 a2 a3 = (applyCSI2 a1 a2 a3) { consumer = baseConsumer }
     applyCSI2 _ t 'K'     = eraseRight t
     applyCSI2 [x] t 'C'   = t { cx = min w (cx1 + x) }
     applyCSI2 _ t 'C'     = t { cx = min w (cx1 + 1) }
+    applyCSI2 [x] t 'D'   = t { cx = max 1 (cx1 - x) }
+    applyCSI2 _ t 'D'     = t { cx = max 1 (cx1 - 1) }
+    applyCSI2 [x] t 'A'   = t { cy = max 1 (cy1 - x) }
+    applyCSI2 _ t 'A'     = t { cy = max 1 (cy1 - 1) }
+    applyCSI2 [x] t 'B'   = t { cy = min h (cy1 + x) }
+    applyCSI2 _ t 'B'     = t { cy = min h (cy1 + 1) }
     applyCSI2 xs t ch = error $ (show xs) ++ (show ch)
 
     cx1 = cx a2
+    cy1 = cy a2
     w = width a2
+    h = height a2
 
 eraseFromList :: Terminal -> [(Int, Int)] -> Terminal
 eraseFromList t indices =
@@ -318,6 +331,53 @@ isSomewhereOnScreen str t =
   any (\y -> isInfixOf str (yLineToStr y t)) [1..h]
   where
     h = height t
+
+linesOf :: (Int, Int) -> (Int, Int) -> Terminal -> [String]
+linesOf (left, top) (right, bottom) t =
+  [(foldr (++) [] (map string [elems ! (x, row) | x <- [left..right]]))
+   | row <- [top..bottom]]
+  where
+    elems = elements t
+
+-- just like Prelude.any but returns the item as Maybe a
+anyValue :: (a -> Maybe b) -> [a] -> Maybe b
+anyValue _ [] = Nothing
+anyValue predicate (i:rest) = case predicate i of
+                                Nothing -> anyValue predicate rest
+                                x       -> x
+
+captureString :: String -> (Int, Int) -> (Int, Int) -> Terminal -> Maybe String
+captureString str topleft rightbottom t =
+  case R.compile RL.defaultCompOpt RL.defaultExecOpt str of
+    (Left msg) -> error $ "Regex compilation error: " ++ msg -- I want to know
+                                                             -- if our regexes
+                                                             -- are wrong
+    (Right regex) ->
+      anyValue (\line ->
+                 case R.execute regex line of
+                      Left msg -> error $ "Regex execution error: " ++ msg
+                      Right Nothing -> Nothing
+                      Right (Just matches) ->
+                                       if len < 1
+                                         then errorNoSubmatch
+                                         else Just $
+                                              take (snd (matches ! 1))
+                                                (drop
+                                                 (fst (matches ! 1))
+                                                 str)
+                                        where
+                                          len = snd (bounds matches))
+               $ linesOf topleft rightbottom t
+  where
+    errorNoSubmatch = error $
+      "Expected regex to return at least one submatch. " ++
+      "(offending regex: " ++ str ++ ")"
+
+captureInteger :: String -> (Int, Int) -> (Int, Int) -> Terminal -> Maybe Int
+captureInteger str b1 b2 t =
+  case captureString str b1 b2 t of
+    Nothing  -> Nothing
+    Just str -> readMay str :: Maybe Int
 
 cursorIsInside :: (Int, Int) -> (Int, Int) -> Terminal -> Bool
 cursorIsInside (left, top) (right, bottom) t =

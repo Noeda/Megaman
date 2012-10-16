@@ -3,16 +3,21 @@
 {-# LANGUAGE ExistentialQuantification #-}
 
 module NetHack.LogicPlumbing
-  (NetHackState(terminal),
+  (NetHackState(terminal, currentLevel),
    newGame,
+   boolAction,
+   sinkAction,
    BAction(),
    NAction(),
+   NActionReturn(Answer),
    hasSinked,
    isSomewhereOnScreen,
    cursorIsInside,
    bailout,
    ifIn,
    ifNotIn,
+   (=~=),
+   (=||=),
    (=&&=),
    (=+=),
    answer,
@@ -23,11 +28,16 @@ import qualified Terminal as T
 import Control.Monad.Cont
 import Control.Monad.State
 
-data NetHackState = NetHackState { terminal :: T.Terminal,
+data NetHackState = NetHackState {
+                                   currentLevel :: Int,
+                                   terminal :: T.Terminal,
                                    next :: NAction }
 
 newGame :: NAction -> NetHackState
-newGame = NetHackState (T.emptyTerminal 80 24)
+newGame = NetHackState 1 (T.emptyTerminal 80 24)
+
+data NActionReturn = Answer Char |
+                     PlanCancel
 
 data BAction = BAction NAction NAction
                  (NetHackState -> IO (NetHackState, Bool)) |
@@ -36,8 +46,16 @@ data BAction = BAction NAction NAction
                NotAction BAction
 data NAction = IfAction BAction NAction NAction |
                SeqAction NAction NAction |
-               AnswerAction Char |
+               StepOutAction NActionReturn |
                SinkAction
+
+boolAction :: NAction -> NAction ->
+              (NetHackState -> IO (NetHackState, Bool)) ->
+              BAction
+boolAction = BAction
+
+sinkAction :: NAction
+sinkAction = SinkAction
 
 hasSinked :: NetHackState -> Bool
 hasSinked (NetHackState { next = n }) = isSinkAction n
@@ -64,7 +82,7 @@ ifIn bac dothis = IfAction bac dothis SinkAction
 
 ifNotIn :: BAction -> NAction -> NAction
 ifNotIn bac1 dothis =
-  IfAction (NotAction bac1) dothis SinkAction
+  ifIn (NotAction bac1) dothis
 
 (=&&=) :: BAction -> BAction -> BAction
 (=&&=) = AndAction
@@ -79,22 +97,23 @@ ifNotIn bac1 dothis =
 (=+=) = SeqAction
 
 answer :: Char -> NAction
-answer = AnswerAction
+answer = StepOutAction . Answer
 
 bailout :: String -> NAction
 bailout _ = SinkAction
 
-runSteps :: NetHackState -> IO (NetHackState, Maybe Char)
+runSteps :: NetHackState -> IO (NetHackState, Maybe NActionReturn)
 runSteps ns = runAction (ns { next = SinkAction }) (next ns)
 
-runAction :: NetHackState -> NAction -> IO (NetHackState, Maybe Char)
+runAction :: NetHackState -> NAction -> IO (NetHackState, Maybe NActionReturn)
 runAction ns SinkAction = return (ns, Nothing)
-runAction ns (AnswerAction ch) = return (ns, Just ch)
+runAction ns (StepOutAction ac) = return (ns, Just ac)
 runAction ns (SeqAction ac1 ac2) = do
   (ns2, ch) <- runAction ns ac1
   case ch of
     Nothing -> runAction ns2 ac2
-    Just  _ -> return (ns2 { next = SeqAction (next ns2) ac2 }, ch)
+    Just _  -> return (ns2 { next = SeqAction (next ns2) ac2 },
+                       ch)
 runAction ns (IfAction (OrAction bac1 bac2) ac acelse) =
   runAction ns (IfAction bac1 ac (IfAction bac2 ac acelse))
 runAction ns (IfAction (AndAction bac1 bac2) ac acelse) =

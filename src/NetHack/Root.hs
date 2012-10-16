@@ -119,8 +119,9 @@ runGameLogic d@(Dispatcher ns _ wchan _ _) = do
   (ns2, ch) <- runSteps ns
   case ch of
     Nothing -> return ()
-    Just ch -> atomically $ writeTChan wchan (B.pack [ch])
+    Just (Answer ch) -> atomically $ writeTChan wchan (B.pack [ch])
   T.printOut (terminal ns)
+  putStrLn $ "LEVEL: " ++ show (currentLevel ns)
   if hasSinked ns2 then putStrLn "AI has sinked." else return ()
   return d { state = ns2 }
 

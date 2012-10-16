@@ -9,4 +9,9 @@ pickTheGender    = isSomewhereOnScreen "Pick the gender of your"
 pickTheAlignment = isSomewhereOnScreen "Pick the alignment of your"
 itIsWrittenInTheBook = isSomewhereOnScreen "It is written in the Book of"
 
-gameScreen = cursorIsInside (1, 2) (80, 22)
+morePrompt = isSomewhereOnScreen "--More--"
+restoringSave = isSomewhereOnScreen "Restoring save file..."
+
+gameScreen = cursorIsInside (1, 2) (80, 22) =&&=
+             ((=~=) morePrompt)
+
