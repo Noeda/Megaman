@@ -18,6 +18,7 @@ module NetHack.LogicPlumbing
    repeatUntilNoAnswer,
    cursorIsInside,
    messages,
+   modAction,
    bailout,
    ifIn,
    ifNotIn,
@@ -35,7 +36,6 @@ import Control.Monad.State
 
 import NetHack.More
 import NetHack.State
-import NetHack.LevelLogic
 
 newGame :: NAction -> NetHackState
 newGame = NetHackState level (T.emptyTerminal 80 24) [] 1
@@ -113,6 +113,9 @@ answer = StepOutAction . Answer
 bailout :: String -> NAction
 bailout = BailoutAction
 
+modAction :: (NetHackState -> IO NetHackState) -> NAction
+modAction = ModAction
+
 runSteps :: NetHackState -> IO (NetHackState, Maybe NActionReturn)
 runSteps ns = runAction (ns { next = SinkAction,
                               messages = stripMessages (terminal ns) })
@@ -123,6 +126,7 @@ runAction ns SinkAction = return (ns, Nothing)
 runAction ns b@(BailoutAction str) = return (ns { next = b },
                                              Just $ Bailout str)
 runAction ns (StepOutAction ac) = return (ns { next = SinkAction }, Just ac)
+runAction ns (ModAction fun) = fun ns >>= (\ns2 -> return (ns2, Nothing))
 runAction ns (SeqAction ac1 ac2) = do
   (ns2, ch) <- runAction ns ac1
   case ch of

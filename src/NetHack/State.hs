@@ -1,6 +1,6 @@
 module NetHack.State(NetHackState(..), BAction(..), NAction(..),
                      Level(..), Element(..), LevelID, Feature(..),
-                     NActionReturn(..)) where
+                     NActionReturn(..), newLevel) where
 
 import Data.Array
 import NetHack.Alignment
@@ -13,11 +13,13 @@ data Level = Level { number   :: Int,
                      boulders :: [(Int, Int)],
                      items    :: [((Int, Int), Item)],
                      monsters :: [((Int, Int), Monster)] }
+                     deriving(Show)
 
 data Element = Element { searched :: Int,
                          walked   :: Int,
                          diggable :: Bool,
                          feature  :: [Feature] }
+                       deriving(Show)
 
 type LevelID = Int
 
@@ -45,9 +47,10 @@ data Feature = DownStairs (Maybe LevelID) |
                Rock             |
                Fountain         |
                Unknown
+               deriving(Show)
 
-data Item = Item
-data Monster = Monster
+data Item = Item deriving(Show)
+data Monster = Monster deriving(Show)
 
 data NetHackState = NetHackState { currentLevel :: Level,
                                    terminal :: T.Terminal,
@@ -61,6 +64,7 @@ data BAction = BAction NAction NAction
                OrAction BAction BAction |
                NotAction BAction
 data NAction = IfAction BAction NAction NAction |
+               ModAction (NetHackState -> IO NetHackState) |
                SeqAction NAction NAction |
                StepOutAction NActionReturn |
                RepeatUntilNoAnswer NAction |
@@ -71,3 +75,22 @@ data NActionReturn = Answer Char |
                      Bailout String
 
 
+newLevel :: Int -> (Level, Int)
+newLevel id = (Level { number = 1,
+                       levelId = id,
+                       elements = array ((1, 2) :: (Int, Int),
+                                         (80, 22) :: (Int, Int))
+                                        [((x,y), initialElement) |
+                                           x <- [1..80],
+                                           y <- [2..22]],
+                       endGame = False,
+                       boulders = [],
+                       items = [],
+                       monsters = [] },
+               id + 1)
+
+initialElement :: Element
+initialElement = Element { searched = 0,
+                           walked = 0,
+                           diggable = True,
+                           feature = [] }

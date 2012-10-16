@@ -125,7 +125,8 @@ runGameLogic d@(Dispatcher ns _ wchan _ _) = do
     Just (Answer ch) -> do (atomically $ writeTChan wchan (B.pack [ch]))
                            putStrLn $ "Answering " ++ [ch]
     Just (Bailout str) -> putStrLn $ "AI has bailed out: " ++ str
-  putStrLn $ "Level ID: " ++ show (levelId . currentLevel $ ns)
+  putStrLn $ "Level ID: " ++ show (levelId . currentLevel $ ns2)
+  putStrLn $ show (currentLevel ns2)
   putStrLn $ show $ messages ns2
   if hasSinked ns2 then putStrLn "AI has sinked." else return ()
   return d { state = ns2 }

@@ -1,7 +1,8 @@
-module Terminal(Terminal(), emptyTerminal, isSomewhereOnScreen,
+module Terminal(Terminal(elements), emptyTerminal, isSomewhereOnScreen,
                 isSomewhereOnScreenPos, strAt, width, height,
                 Attributes(foreground, background, bold, inverse),
                 cursorIsInside, captureString, captureInteger,
+                Elem(string, attrs),
                 Color(..),
                 handleChar, printOut) where
 

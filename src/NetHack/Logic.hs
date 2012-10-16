@@ -10,7 +10,7 @@ import NetHack.Screens
 root :: NAction
 root = restoreSave =+=
        startCharacter (Combo Healer Gnome Female Neutral) =+=
-       exploreLevel 1
+       exploreLevel
 
 -- Restores a save if it looks like there is one.
 -- (currently saving the state is not implemented)
@@ -41,10 +41,12 @@ startCharacter combo =
 -- Explores the dungeon level as specified by an integer.
 -- If the player is not the level, then the bot will attempt to get there
 -- in some way. May bail out if it runs out of ideas to get on the level.
-exploreLevel :: Int -> NAction
-exploreLevel level =
-  ifNotIn (isCurrentLevel level) sinkAction =+=
-  bailout "I would explore now if I knew how to do it"
+exploreLevel :: NAction
+exploreLevel =
+  repeatUntilNoAnswer $
+    skipMores               =+=
+    updateCurrentLevel
+
 
 harmlessMores :: [BAction]
 harmlessMores = [itIsWrittenInTheBook, welcomeBackToNetHack]

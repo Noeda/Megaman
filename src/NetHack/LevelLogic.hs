@@ -1,12 +1,13 @@
-module NetHack.LevelLogic(Level(), Element(), newLevel) where
+module NetHack.LevelLogic(Level(), Element(), newLevel, deduceFeatureByCh)
+  where
 
+import NetHack.LogicPlumbing
 import NetHack.State
 import NetHack.Monster
 import NetHack.Item
 import NetHack.Alignment
 import Terminal as T
 
-import Data.Array
 
 deduceFeatureByStr :: String -> Maybe Feature
 deduceFeatureByStr "floor of a room" = Just Floor
@@ -100,24 +101,4 @@ deduceFeatureByCh '"' att
   | foreground att == White      = [Trap]
   | otherwise                    = []
 deduceFeatureByCh _ _ = []
-
-newLevel :: Int -> (Level, Int)
-newLevel id = (Level { number = 1,
-                       levelId = id,
-                       elements = array ((1, 2) :: (Int, Int),
-                                         (80, 22) :: (Int, Int))
-                                        [((x,y), initialElement) |
-                                           x <- [1..80],
-                                           y <- [2..22]],
-                       endGame = False,
-                       boulders = [],
-                       items = [],
-                       monsters = [] },
-               id + 1)
-
-initialElement :: Element
-initialElement = Element { searched = 0,
-                           walked = 0,
-                           diggable = True,
-                           feature = [] }
 
