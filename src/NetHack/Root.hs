@@ -1,7 +1,7 @@
 module NetHack.Root(runNetHackBot) where
 
-import Prelude hiding (foldl)
-import Data.Foldable(foldl)
+import Prelude hiding (foldl, foldl1, mapM_)
+import Data.Foldable(foldl, foldl1, mapM_)
 
 import qualified Terminal as T
 
@@ -13,13 +13,14 @@ import System.Clock
 import qualified Data.Sequence as S
 
 import Control.Exception
+import Control.Monad hiding (mapM_)
 import Control.Monad.IO.Class
 import qualified Data.Enumerator as E
 import qualified Data.Enumerator.List as EL
 
-import NetHack.State
 import NetHack.Logic
-import NetHack.LogicPlumbing
+import NetHack.Monad.NHAction
+import NetHack.ReadWriteChan
 import NetHack.More
 
 data NetHackMsg = Closed |
@@ -27,15 +28,15 @@ data NetHackMsg = Closed |
 type NetHackChan = TChan NetHackMsg
 type NetHackWriteChan = TChan B.ByteString
 
-data Dispatcher = Dispatcher { state :: NetHackState,
-                               readChan :: NetHackChan,
-                               writeChan :: NetHackWriteChan,
+data Dispatcher = Dispatcher { ptyChannels :: (NetHackChan,
+                                               NetHackWriteChan),
+                               nethackChannels :: RWChan B.ByteString,
                                msgQueue :: S.Seq B.ByteString,
                                lastTimeReceived :: Integer }
 
 -- Time to wait after the last received data before running bot AI
 -- (nanoseconds)
-graceTime = 500000000
+graceTime = 200000000
 
 netHackIteratee :: MonadIO m => NetHackChan ->
                                 E.Iteratee B.ByteString m ()
@@ -54,14 +55,21 @@ runNetHackBot enumerator iteratee = do
   chan <- newTChanIO
   writerChan <- newTChanIO
 
+  let ptyChannels = (chan, writerChan)
+
+  nethackChannels <- newRWChanIO
+
   -- Make sure if brains dies, we die too.
   -- TODO: fork the enumerator/iteratee too and wait here until either of
   -- them dies.
   tid <- myThreadId
 
-  writertid <- forkIO $ runWriter iteratee writerChan
-  forkIO $ finally (runDispatcher chan writerChan)
-                   (killThread tid >> killThread writertid)
+  writertid <- forkIO $ finally (runWriter iteratee writerChan)
+                                (killThread tid)
+  dispatchertid <- forkIO $ finally (runDispatcher ptyChannels nethackChannels)
+                                    (killThread tid >> killThread writertid)
+  forkIO $ finally ((runAI . flipRWChan) nethackChannels)
+                   (mapM_ killThread [writertid, dispatchertid, tid])
   E.run_ $ enumerator E.$$ netHackIteratee chan
 
 runWriter :: E.Iteratee B.ByteString IO () ->
@@ -76,17 +84,20 @@ now = do (TimeSpec sec nsec) <- getTime Monotonic
                               fromIntegral nsec) :: (Integer, Integer)
          return $ isec * 1000000000 + insec
 
-runDispatcher :: NetHackChan -> NetHackWriteChan -> IO ()
-runDispatcher chan writeChan = do
+runDispatcher :: (NetHackChan, NetHackWriteChan) -> RWChan B.ByteString ->
+                 IO ()
+runDispatcher channels nethackChannels = do
   n <- now
-  loopDispatcher (Dispatcher (newGame root) chan writeChan S.empty n)
+  loopDispatcher (Dispatcher channels nethackChannels S.empty n)
 
 -- What is happening here is that we call runLogic whenever we haven't
 -- received data from the channel after 'graceTime' nanoseconds. That's
 -- when we assume NetHack has sent as much data as it is going to send for
 -- now.
 loopDispatcher :: Dispatcher -> IO ()
-loopDispatcher d@(Dispatcher game chan _ msgqueue lastreceived) = do
+loopDispatcher d@(Dispatcher { ptyChannels = (chan, _),
+                               msgQueue = msgqueue,
+                               lastTimeReceived = lastreceived }) = do
   n <- now
   chunk <- atomically $ tryReadTChan chan
   case chunk of
@@ -101,34 +112,26 @@ loopDispatcher d@(Dispatcher game chan _ msgqueue lastreceived) = do
                                            msgQueue = msgqueue S.|> msg })
 
 runLogic :: Dispatcher -> IO Dispatcher
--- Update the terminal and then run the game logic
-runLogic = runGameLogic . flushMsgQueueToTerminal
+runLogic = atomically . flushMsgQueueToTerminal
 
-flushMsgQueueToTerminal :: Dispatcher -> Dispatcher
-flushMsgQueueToTerminal d@(Dispatcher state _ _ queue _) =
-  d { state = flush state queue, msgQueue = S.empty } where
+flushMsgQueueToTerminal :: Dispatcher -> STM Dispatcher
+flushMsgQueueToTerminal d@(Dispatcher { msgQueue = queue,
+                                        nethackChannels = nhchan }) = do
+  flushReadQueue d
+  if queue == S.empty
+    then return d
+    else do let completestr = foldl1 B.append queue
+            writeRWChan nhchan completestr
+            return d { msgQueue = S.empty }
 
-    flush state queue
-      | queue == S.empty = state
-      | otherwise        = state { terminal =
-                                     foldl (\t bs ->
-                                       foldl T.handleChar t (B.unpack bs))
-                                         t queue }
-                           where t = terminal state
+flushReadQueue :: Dispatcher -> STM ()
+flushReadQueue d@(Dispatcher { ptyChannels = (_, chan),
+                               nethackChannels = nhchan }) = do
+  msg <- tryReadRWChan nhchan
+  case msg of
+    Nothing  -> return ()
+    Just str -> writeTChan chan str >> flushReadQueue d
 
-runGameLogic :: Dispatcher -> IO Dispatcher
-runGameLogic d@(Dispatcher ns _ wchan _ _) = do
-  (ns2, ch) <- runSteps ns
-  T.printOut (terminal ns2)
-  case ch of
-    Nothing -> return ()
-    Just (Answer ch) -> do (atomically $ writeTChan wchan (B.pack [ch]))
-                           putStrLn $ "Answering " ++ [ch]
-    Just (Bailout str) -> putStrLn $ "AI has bailed out: " ++ str
-  putStrLn $ "Level ID: " ++ show (levelId . currentLevel $ ns2)
-  putStrLn $ show (currentLevel ns2)
-  putStrLn $ show $ messages ns2
-  if hasSinked ns2 then putStrLn "AI has sinked." else return ()
-  return d { state = ns2 }
-
+runAI :: RWChan B.ByteString -> IO ()
+runAI channels = runNHAction (newGame channels) $ root
 

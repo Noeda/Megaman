@@ -1,0 +1,139 @@
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+
+module NetHack.Monad.NHAction(get, getTerminal, NHAction(), Feature(..),
+                              put, Element(..), Level(..), NetHackState(..),
+                              answer, bailout, runNHAction, newGame,
+                              waitForData)
+                              where
+
+import qualified Data.ByteString.Char8 as B
+import Control.Concurrent.STM
+import Control.Monad.State
+import NetHack.More
+import NetHack.ReadWriteChan
+import NetHack.Alignment
+import Data.Array(Array(), array)
+import qualified Terminal as T
+
+data Level = Level { number   :: Int,
+                     levelId  :: Int,
+                     elements :: Array (Int, Int) Element,
+                     endGame  :: Bool,
+                     boulders :: [(Int, Int)],
+                     items    :: [((Int, Int), Item)],
+                     monsters :: [((Int, Int), Monster)] }
+                     deriving(Show)
+
+data NetHackState = NetHackState { currentLevel :: Level,
+                                   terminal :: T.Terminal,
+                                   messages :: [String],
+                                   runningId :: Int,
+                                   channels :: RWChan B.ByteString }
+
+data Element = Element { searched :: Int,
+                         walked   :: Int,
+                         diggable :: Bool,
+                         lookedLike :: (String, T.Attributes),
+                         feature  :: [Feature] }
+                       deriving(Show)
+
+data Item = Item deriving(Show)
+data Monster = Monster deriving(Show)
+
+
+initialElement :: Element
+initialElement = Element { searched = 0,
+                           walked = 0,
+                           diggable = True,
+                           lookedLike = ("karamelli", T.defaultAttrs),
+                           feature = [] }
+
+type LevelID = Int
+
+data Feature = DownStairs (Maybe LevelID) |
+               UpStairs   (Maybe LevelID) |
+               DownLadder (Maybe LevelID) |
+               UpLadder   (Maybe LevelID) |
+               Portal     (Maybe LevelID) |
+               Throne           |
+               Floor            |
+               Wall             |
+               ClosedDoor       |
+               OpenedDoor       |
+               Grave            |
+               Altar (Maybe Alignment) | -- alignment may not be known
+               Trap             |  -- TODO: distinguish traps
+               Tree             |
+               Water            |  -- TODO: distinguish pools and moats
+               Lava             |
+               DrawbridgeClosed |
+               DrawbridgeOpened |
+               Cloud            |
+               Corridor         |
+               Air              |
+               Rock             |
+               Fountain         |
+               Unknown
+               deriving(Eq, Show)
+
+newtype NHAction a = NHAction (StateT NetHackState IO a)
+                     deriving (MonadState NetHackState, MonadIO, Functor)
+
+instance Monad NHAction where
+  return x = NHAction $ return x
+  (NHAction m) >>= b  = NHAction $ m >>= (\value -> let x = b value
+                                                     in unwrap x)
+                        where
+                          unwrap (NHAction x) = x
+
+getTerminal :: NHAction T.Terminal
+getTerminal = do ns <- get; return $ terminal ns
+
+getChan :: NHAction (RWChan B.ByteString)
+getChan = do ns <- get; return $ channels ns
+
+runNHAction :: NetHackState -> NHAction a -> IO a
+runNHAction ns (NHAction st) = do
+  (result, _) <- runStateT st ns
+  return result
+
+newLevel :: Int -> (Level, Int)
+newLevel id = (Level { number = 1,
+                       levelId = id,
+                       elements = array ((1, 2) :: (Int, Int),
+                                         (80, 22) :: (Int, Int))
+                                        [((x,y), initialElement) |
+                                           x <- [1..80],
+                                           y <- [2..22]],
+                       endGame = False,
+                       boulders = [],
+                       items = [],
+                       monsters = [] },
+               id + 1)
+
+newGame :: RWChan B.ByteString -> NetHackState
+newGame = NetHackState level (T.emptyTerminal 80 24) [] 1
+          where
+            (level, _) = newLevel 0
+
+waitForData :: NHAction ()
+waitForData = do
+  chan <- getChan
+  str <- liftIO $ atomically $ readRWChan chan
+  ns <- get
+  t <- getTerminal
+  let t2 = newT str t
+  put $ ns { terminal = t2, messages = stripMessages t2 }
+  liftIO $ T.printOut t2
+  where
+    newT str t = B.foldl T.handleChar t str
+
+bailout = error
+
+class Answerable a where
+  answer :: a -> NHAction ()
+
+instance Answerable Char where
+  answer ch = getChan >>= (\chan ->
+    liftIO $ atomically $ writeRWChan chan $ B.pack [ch]) >> waitForData
+

@@ -22,7 +22,8 @@ executable megaman
                        NetHack.Algorithms.Dice,
                        Terminal,
 
-                       NetHack.State,
+                       NetHack.ReadWriteChan,
+                       NetHack.Monad.NHAction,
                        NetHack.Combo,
                        NetHack.Alignment,
                        NetHack.Screens,

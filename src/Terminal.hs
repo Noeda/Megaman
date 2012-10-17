@@ -1,9 +1,10 @@
 module Terminal(Terminal(elements), emptyTerminal, isSomewhereOnScreen,
                 isSomewhereOnScreenPos, strAt, width, height,
                 Attributes(foreground, background, bold, inverse),
+                defaultAttrs,
                 cursorIsInside, captureString, captureInteger,
                 Elem(string, attrs),
-                Color(..),
+                Color(..), cursorX, cursorY,
                 handleChar, printOut) where
 
 import Data.Char
@@ -29,10 +30,17 @@ data Terminal = Terminal { elements :: TerminalArray,
                            attributes :: Attributes,
                            consumer :: Terminal -> Char -> Terminal }
 
+cursorX :: Terminal -> Int
+cursorX = cx
+
+cursorY :: Terminal -> Int
+cursorY = cy
+
 data Attributes = Attributes { foreground :: Color,
                                background :: Color,
                                bold :: Bool,
                                inverse :: Bool }
+                  deriving(Eq, Show)
 
 -- Some elements may be written over by some other elements
 -- For example, full width CJK characters can take two elements in the

@@ -1,8 +1,7 @@
-module NetHack.LevelLogic(Level(), Element(), newLevel, deduceFeatureByCh)
+module NetHack.LevelLogic(deduceFeatureByCh)
   where
 
-import NetHack.LogicPlumbing
-import NetHack.State
+import NetHack.Monad.NHAction
 import NetHack.Monster
 import NetHack.Item
 import NetHack.Alignment

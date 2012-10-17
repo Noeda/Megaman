@@ -1,5 +1,7 @@
 module NetHack.Logic(root) where
 
+import Control.Monad
+import NetHack.Monad.NHAction
 import NetHack.LevelLogic
 import NetHack.LevelPlumbing
 import NetHack.LogicPlumbing
@@ -7,30 +9,31 @@ import NetHack.Combo
 import NetHack.Alignment
 import NetHack.Screens
 
-root :: NAction
-root = restoreSave =+=
-       startCharacter (Combo Healer Gnome Female Neutral) =+=
+root :: NHAction ()
+root = waitForData >>
+       restoreSave >>
+       startCharacter (Combo Healer Gnome Female Neutral) >>
        exploreLevel
 
 -- Restores a save if it looks like there is one.
 -- (currently saving the state is not implemented)
-restoreSave :: NAction
+restoreSave :: NHAction ()
 restoreSave =
-  ifIn restoringSave (answer ' ')
+  void $ ifIn restoringSave (answer ' ')
 
 -- Starts a character if one has not been started yet.
 -- If the combo is invalid or something else bad happens, it bails out.
-startCharacter :: Combo -> NAction
-startCharacter combo =
-  ifIn shallIPick       (answer 'n')        =+=
-  ifIn pickARole        (answer role1)      =+=
-  ifIn pickTheRace      (answer race1)      =+=
-  ifIn pickTheGender    (answer gender1)    =+=
-  ifIn pickTheAlignment (answer alignment1) =+=
+startCharacter :: Combo -> NHAction ()
+startCharacter combo = do
+  ifIn shallIPick       (answer 'n')        
+  ifIn pickARole        (answer role1)      
+  ifIn pickTheRace      (answer race1)      
+  ifIn pickTheGender    (answer gender1)    
+  ifIn pickTheAlignment (answer alignment1) 
 
-  skipMores                                 =+=
+  skipMores                                 
 
-  ifNotIn gameScreen (bailout "I was not able to pick a character.")
+  void $ ifNotIn gameScreen (bailout "I was not able to pick a character.")
 
   where
     role1 = roleLetter $ role combo
@@ -41,21 +44,20 @@ startCharacter combo =
 -- Explores the dungeon level as specified by an integer.
 -- If the player is not the level, then the bot will attempt to get there
 -- in some way. May bail out if it runs out of ideas to get on the level.
-exploreLevel :: NAction
-exploreLevel =
-  repeatUntilNoAnswer $
-    skipMores               =+=
-    updateCurrentLevel
+exploreLevel :: NHAction ()
+exploreLevel = do
+  skipMores
+  updateCurrentLevel
 
-
-harmlessMores :: [BAction]
+harmlessMores :: [NHAction Bool]
 harmlessMores = [itIsWrittenInTheBook, welcomeBackToNetHack]
 
-skipMores :: NAction
-skipMores =
-  repeatUntilNoAnswer $
-    foldr (\bac naction -> naction =+= ifIn (bac =&&= morePrompt) space)
-          sinkAction harmlessMores
-    where
-      space = answer ' '
+skipMores :: NHAction ()
+skipMores = do
+  pleaseRepeat <-
+    foldM (\result ac -> do test <- ac
+                            if test then answer ' ' else return ()
+                            if result then return True else ac)
+          False harmlessMores
+  if pleaseRepeat then skipMores else return ()
 
