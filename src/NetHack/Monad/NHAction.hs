@@ -1,9 +1,9 @@
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving, FlexibleInstances #-}
 
 module NetHack.Monad.NHAction(get, getTerminal, NHAction(), Feature(..),
                               put, Element(..), Level(..), NetHackState(..),
                               answer, bailout, runNHAction, newGame,
-                              waitForData)
+                              waitForData, liftIO)
                               where
 
 import qualified Data.ByteString.Char8 as B
@@ -12,7 +12,7 @@ import Control.Monad.State
 import NetHack.More
 import NetHack.ReadWriteChan
 import NetHack.Alignment
-import Data.Array(Array(), array)
+import Data.Array(Array(), array, (!))
 import qualified Terminal as T
 
 data Level = Level { number   :: Int,
@@ -116,6 +116,27 @@ newGame = NetHackState level (T.emptyTerminal 80 24) [] 1
           where
             (level, _) = newLevel 0
 
+featureStr :: [Feature] -> String
+featureStr [Wall] = "#"
+featureStr [Floor] = "."
+featureStr [OpenedDoor] = "|"
+featureStr [] = "%"
+featureStr x
+  | length x > 1 = "!"
+  | otherwise    = "?"
+
+-- For debugging
+printOut :: Level -> IO ()
+printOut Level { elements = elems } = do
+  mapM_ (\x -> putChar '-') [1..82]
+  putChar '\n'
+  mapM_ (\y -> putChar '|' >>
+               (mapM_ (\x -> putStr (featureStr $ feature (elems ! (x, y)))) [1..80]) >>
+               putChar '|' >>
+               putChar '\n') [2..22]
+  mapM_ (\x -> putChar '-') [1..82]
+  putChar '\n'
+
 waitForData :: NHAction ()
 waitForData = do
   chan <- getChan
@@ -136,4 +157,8 @@ class Answerable a where
 instance Answerable Char where
   answer ch = getChan >>= (\chan ->
     liftIO $ atomically $ writeRWChan chan $ B.pack [ch]) >> waitForData
+
+instance Answerable [Char] where
+  answer str = getChan >>= (\chan ->
+    liftIO $ atomically $ writeRWChan chan $ B.pack str) >> waitForData
 

@@ -1,9 +1,11 @@
 module NetHack.LevelPlumbing(updateCurrentLevel) where
 
+import NetHack.More
 import NetHack.LevelLogic
 import NetHack.LogicPlumbing
 import qualified Terminal as T
 
+import Data.Foldable(foldlM)
 import NetHack.Monad.NHAction
 import Control.Monad.ST
 import Data.Array
@@ -19,12 +21,13 @@ updateCurrentLevel :: NHAction ()
 updateCurrentLevel = do
   ns <- get
   put $ ns { currentLevel = (currentLevel ns) { elements = newarr ns } }
+  farLookUncertainPlaces
   where newarr ns = runST $ do
           marr <- (thaw $ (elements . currentLevel) ns) :: STElementArray s
           mapM_ (\coords -> do arrelem <- readArray marr coords
                                writeArray marr coords
                                  (updateElem ns arrelem coords))
-                [(x, y) | x <- [1..80], y <- [2..22]]
+                levelCoordinates
           freeze marr
         tElemAt ns (x, y) = (T.elements (terminal ns)) ! (x, y)
         updateElem ns elem (x, y) =
@@ -38,37 +41,55 @@ updateCurrentLevel = do
             deductions = deduceFeatureByCh ((head . T.string) tElem)
                                            (T.attrs tElem)
 
-{-
-fineTuning :: NAction
-fineTuning = modActionSpawn (checker 1 2)
-  where
-    checker x y =
-      (\ns -> let feats = features $ elements ! (x, y)
-               in return $ if length feats > 1
-                             then (ns, clarifier x y =+= nextChecker x y)
-                             else (ns, nextChecker x y)
-    nextChecker x y =
-      modActionSpawn (\ns -> if x < 80
-                       then (checker (1 + x) y)
-                       else if y < 22
-                         then (checker 1 (y + 1)
-                         else (\ns -> return (ns, Nothing))
--}
-
 cursorIsAt :: Int -> Int -> NHAction Bool
 cursorIsAt x y = do
   t <- getTerminal
   return $ x == T.cursorX t &&
            y == T.cursorY t
 
-{-
-clarifier :: Int -> Int -> NAction
-clarifier x y = farLook x y =+= updatePositionInformationFL x y
+levelCoordinates :: [(Int, Int)]
+levelCoordinates = [(x, y) | x <- [1..80], y <- [2..22]]
+
+farLookUncertainPlaces :: NHAction ()
+farLookUncertainPlaces = do
+  ns <- get
+  let elems = (elements . currentLevel) ns
+  elems2 <- foldlM farLookStep elems levelCoordinates
+  put $ ns { currentLevel = (currentLevel ns) { elements = elems2 } }
+
+farLookStep :: Array (Int, Int) Element ->
+               (Int, Int) ->
+               NHAction (Array (Int, Int) Element)
+farLookStep elems coords =
+ if (length . feature) (elems ! coords) > 1 then do
+      farlooked <- farLook coords
+      case deduceFeatureByStr farlooked of
+        Just feature -> return $ elems //
+          [(coords, (elems ! coords) { feature = [feature] })]
+        Nothing      -> return $ elems
+    else return $ elems
+
+farLook :: (Int, Int) -> NHAction String
+farLook (x, y) = do
+  t <- getTerminal
+  let (cx, cy) = (T.cursorX t, T.cursorY t)
+  let str      = ";" ++
+                 (take (x - cx) $ repeat 'l') ++
+                 (take (cx - x) $ repeat 'h') ++
+                 (take (y - cy) $ repeat 'j') ++
+                 (take (cy - y) $ repeat 'k') ++ "."
+  answer str
+  farLookResult
+
+farLookResult :: NHAction String
+farLookResult = do
+  t <- getTerminal
+  case T.captureString "\\((.+)\\)" (1, 1) (80, 1) t of
+    Just r  -> return $ r
+    Nothing ->
+      case T.captureString " an? (.+) *$" (1, 1) (80, 1) t of
+        Just r -> return $ trim r
+        Nothing -> return ""
 
 
-farLook :: Int -> Int -> NAction
-farLook x y = answer ';'       =+=
-              moveCursorTo x y =+=
-              answer '.'
--}
 

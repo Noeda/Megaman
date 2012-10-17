@@ -1,4 +1,4 @@
-module NetHack.LevelLogic(deduceFeatureByCh)
+module NetHack.LevelLogic(deduceFeatureByCh, deduceFeatureByStr)
   where
 
 import NetHack.Monad.NHAction

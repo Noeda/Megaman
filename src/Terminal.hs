@@ -16,10 +16,7 @@ import Data.Array.MArray
 import Data.Maybe
 import Data.List(isPrefixOf)
 
-import Safe
-
-import Text.Regex.TDFA.String as R
-import Text.Regex.Base.RegexLike as RL
+import qualified Regex as R
 
 type TerminalArray = Array (Int, Int) Elem
 type STTerminalArray s = ST s (STArray s (Int, Int) Elem)
@@ -292,6 +289,7 @@ applyAttrib t@(Terminal { attributes = attrs }) n
       t { attributes = attrs { foreground = fromJust $ fgToColor n } }
   | bgToColor n /= Nothing =
       t { attributes = attrs { foreground = fromJust $ bgToColor n } }
+  | n == 0 = t { attributes = defaultAttrs }
   | otherwise = t
 
 currentElem :: Terminal -> Elem
@@ -367,45 +365,13 @@ linesOf (left, top) (right, bottom) t =
   where
     elems = elements t
 
--- just like Prelude.any but returns the item as Maybe a
-anyValue :: (a -> Maybe b) -> [a] -> Maybe b
-anyValue _ [] = Nothing
-anyValue predicate (i:rest) = case predicate i of
-                                Nothing -> anyValue predicate rest
-                                x       -> x
-
 captureString :: String -> (Int, Int) -> (Int, Int) -> Terminal -> Maybe String
 captureString str topleft rightbottom t =
-  case R.compile RL.defaultCompOpt RL.defaultExecOpt str of
-    (Left msg) -> error $ "Regex compilation error: " ++ msg -- I want to know
-                                                             -- if our regexes
-                                                             -- are wrong
-    (Right regex) ->
-      anyValue (\line ->
-                 case R.execute regex line of
-                      Left msg -> error $ "Regex execution error: " ++ msg
-                      Right Nothing -> Nothing
-                      Right (Just matches) ->
-                                       if len < 1
-                                         then errorNoSubmatch
-                                         else Just $
-                                              take (snd (matches ! 1))
-                                                (drop
-                                                 (fst (matches ! 1))
-                                                 str)
-                                        where
-                                          len = snd (bounds matches))
-               $ linesOf topleft rightbottom t
-  where
-    errorNoSubmatch = error $
-      "Expected regex to return at least one submatch. " ++
-      "(offending regex: " ++ str ++ ")"
+  R.match str (foldr (++) [] (linesOf topleft rightbottom t))
 
 captureInteger :: String -> (Int, Int) -> (Int, Int) -> Terminal -> Maybe Int
-captureInteger str b1 b2 t =
-  case captureString str b1 b2 t of
-    Nothing  -> Nothing
-    Just str -> readMay str :: Maybe Int
+captureInteger str topleft rightbottom t =
+  R.match str (foldr (++) [] (linesOf topleft rightbottom t))
 
 cursorIsInside :: (Int, Int) -> (Int, Int) -> Terminal -> Bool
 cursorIsInside (left, top) (right, bottom) t =
