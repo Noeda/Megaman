@@ -33,6 +33,7 @@ executable megaman
                        NetHack.LevelPlumbing,
                        NetHack.Logic,
                        NetHack.More,
+                       NetHack.Messages,
                        NetHack.LogicPlumbing
 
   build-depends:       base ==4.6.*,

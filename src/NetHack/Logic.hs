@@ -8,6 +8,7 @@ import NetHack.LogicPlumbing
 import NetHack.Combo
 import NetHack.Alignment
 import NetHack.Screens
+import NetHack.More
 
 root :: NHAction ()
 root = waitForData >>
@@ -49,15 +50,4 @@ exploreLevel = do
   skipMores
   updateCurrentLevel
 
-harmlessMores :: [NHAction Bool]
-harmlessMores = [itIsWrittenInTheBook, welcomeBackToNetHack]
-
-skipMores :: NHAction ()
-skipMores = do
-  pleaseRepeat <-
-    foldM (\result ac -> do test <- ac
-                            if test then answer ' ' else return ()
-                            if result then return True else ac)
-          False harmlessMores
-  if pleaseRepeat then skipMores else return ()
 

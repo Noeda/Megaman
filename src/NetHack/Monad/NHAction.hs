@@ -9,7 +9,7 @@ module NetHack.Monad.NHAction(get, getTerminal, NHAction(), Feature(..),
 import qualified Data.ByteString.Char8 as B
 import Control.Concurrent.STM
 import Control.Monad.State
-import NetHack.More
+import NetHack.Messages
 import NetHack.ReadWriteChan
 import NetHack.Alignment
 import Data.Array(Array(), array, (!))
@@ -73,6 +73,7 @@ data Feature = DownStairs (Maybe LevelID) |
                Air              |
                Rock             |
                Fountain         |
+               IronBars         |
                Unknown
                deriving(Eq, Show)
 

@@ -1,6 +1,7 @@
 module NetHack.LevelPlumbing(updateCurrentLevel) where
 
-import NetHack.More
+import NetHack.Messages(trim)
+import NetHack.Screens
 import NetHack.LevelLogic
 import NetHack.LogicPlumbing
 import qualified Terminal as T
@@ -79,12 +80,15 @@ farLook (x, y) = do
                  (take (y - cy) $ repeat 'j') ++
                  (take (cy - y) $ repeat 'k') ++ "."
   answer str
-  farLookResult
+  str <- farLookResult
+  shouldIskipMore <- morePrompt
+  if shouldIskipMore then answer ' ' else return ()
+  return str
 
 farLookResult :: NHAction String
 farLookResult = do
   t <- getTerminal
-  case T.captureString "\\((.+)\\)" (1, 1) (80, 1) t of
+  case T.captureString "\\((.+)\\)" (1, 1) (80, 2) t of
     Just r  -> return $ r
     Nothing ->
       case T.captureString " an? (.+) *$" (1, 1) (80, 1) t of
