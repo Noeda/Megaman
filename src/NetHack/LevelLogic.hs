@@ -56,13 +56,22 @@ deduceFeatureByCh '.' att
   | otherwise                    = []
 deduceFeatureByCh '#' att
   | foreground att == Default ||
-    foreground att == White      = [Cloud, Corridor]
+    foreground att == White      = [Corridor]
   | foreground att == Green      = [Tree]
+  | foreground att == Cyan       = [IronBars]
+  | otherwise                    = []
+deduceFeatureByCh '6' att
+  | foreground att == Default ||
+    foreground att == White      = [Cloud]
   | otherwise                    = []
 deduceFeatureByCh '|' att
   | foreground att == Default ||
-    foreground att == White      = [Wall, Grave]
+    foreground att == White      = [Wall]
   | foreground att == Yellow     = [OpenedDoor]
+  | otherwise                    = []
+deduceFeatureByCh '9' att
+  | foreground att == Default ||
+    foreground att == White      = [Grave]
   | otherwise                    = []
 deduceFeatureByCh '-' att
   | foreground att == Default ||
