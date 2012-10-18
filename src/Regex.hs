@@ -5,6 +5,7 @@ module Regex(Matcher, RMatch, match) where
 import qualified Text.Regex.TDFA.String as R
 import qualified Text.Regex.Base.RegexLike as RL
 
+import Misc
 import Safe
 import Data.Array((!), bounds)
 
@@ -52,9 +53,3 @@ compileAndExecute regex str =
           "Expected regex to return at least one submatch. " ++
           "(offending regex: " ++ str ++ ")"
 
--- just like Prelude.any but returns the item as Maybe a
-anyValue :: (a -> Maybe b) -> [a] -> Maybe b
-anyValue _ [] = Nothing
-anyValue predicate (i:rest) = case predicate i of
-                                Nothing -> anyValue predicate rest
-                                x       -> x

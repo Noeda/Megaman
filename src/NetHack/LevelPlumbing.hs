@@ -6,12 +6,16 @@ import NetHack.LevelLogic
 import NetHack.LogicPlumbing
 import qualified Terminal as T
 
+
+import qualified Data.ByteString.Char8 as B
+import qualified NetHack.Vanilla.MonsterData as MD
 import Data.Foldable(foldlM)
 import NetHack.Monad.NHAction
 import Control.Monad.ST
 import Data.Array
 import Data.Array.MArray
 import Data.Array.ST
+import NetHack.Monster
 
 captureLevelFromScreen :: T.Terminal -> Maybe Int
 captureLevelFromScreen = T.captureInteger "Dlvl:([0-9]+)" (1, 23) (80, 23)
@@ -20,6 +24,52 @@ type STElementArray s = ST s (STArray s (Int, Int) Element)
 
 updateCurrentLevel :: NHAction ()
 updateCurrentLevel = do
+  updateMonsters
+  updateBoulders
+  updateDungeonFeatures
+
+updateBoulders :: NHAction ()
+updateBoulders = do
+  ns <- get
+  t <- getTerminal
+  put $ ns { currentLevel = newboulders t $ (currentLevel ns) }
+  where
+    newboulders t l = l { boulders =
+      foldl (\boulders coords ->
+               if T.strAt coords t == "0"
+                 then (coords:boulders)
+                 else boulders) [] levelCoordinates }
+
+updateMonsters :: NHAction ()
+updateMonsters = do
+  ns <- get
+  t <- getTerminal
+  l <- getLevel
+  newmonsters <- foldNewMonsters t l
+  put $ ns { currentLevel = l { monsters = newmonsters } }
+  liftIO $ putStrLn $ show $ newmonsters
+  where
+    foldNewMonsters t l =
+      foldlM (accumulateNewMonsters t) [] levelCoordinates
+    accumulateNewMonsters t monsters coords =
+      case monsterByAppearance (T.strAt coords t)
+                               (T.attrsAt coords t) of
+        []      -> return $ monsters
+        [x]     -> return $ (coords, MonsterInst x defaultMonsterAttrs):monsters
+        more    -> do result <- farLook coords
+                      let (trimmed, attrs) = monsterNameTrim result
+                      case MD.monster $ B.pack trimmed of
+                        Nothing -> return monsters
+                        Just m  -> return $ (coords, MonsterInst m attrs):monsters
+
+nonDungeonFeature :: NetHackState -> (Int, Int) -> Bool
+nonDungeonFeature (NetHackState { terminal = t }) (x, y) =
+  case T.strAt (x, y) t of
+    "0" -> True
+    _   -> False
+
+updateDungeonFeatures :: NHAction ()
+updateDungeonFeatures = do
   ns <- get
   put $ ns { currentLevel = (currentLevel ns) { elements = newarr ns } }
   farLookUncertainPlaces
@@ -28,7 +78,7 @@ updateCurrentLevel = do
           mapM_ (\coords -> do arrelem <- readArray marr coords
                                writeArray marr coords
                                  (updateElem ns arrelem coords))
-                levelCoordinates
+                $ filter (not . nonDungeonFeature ns) levelCoordinates
           freeze marr
         tElemAt ns (x, y) = (T.elements (terminal ns)) ! (x, y)
         updateElem ns elem (x, y) =

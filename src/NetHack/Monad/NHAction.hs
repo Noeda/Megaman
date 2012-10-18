@@ -3,9 +3,12 @@
 module NetHack.Monad.NHAction(get, getTerminal, NHAction(), Feature(..),
                               put, Element(..), Level(..), NetHackState(..),
                               answer, bailout, runNHAction, newGame,
+                              getLevel, MonsterInst(..), MonsterAttrs(..),
+                              defaultMonsterAttrs,
                               waitForData, liftIO)
                               where
 
+import qualified NetHack.Vanilla.MonsterData as MD
 import qualified Data.ByteString.Char8 as B
 import Control.Concurrent.STM
 import Control.Monad.State
@@ -21,7 +24,7 @@ data Level = Level { number   :: Int,
                      endGame  :: Bool,
                      boulders :: [(Int, Int)],
                      items    :: [((Int, Int), Item)],
-                     monsters :: [((Int, Int), Monster)] }
+                     monsters :: [((Int, Int), MonsterInst)] }
                      deriving(Show)
 
 data NetHackState = NetHackState { currentLevel :: Level,
@@ -38,8 +41,12 @@ data Element = Element { searched :: Int,
                        deriving(Show)
 
 data Item = Item deriving(Show)
-data Monster = Monster deriving(Show)
+data MonsterAttrs = MonsterAttrs { peaceful :: Maybe Bool,
+                                   tame :: Maybe Bool } deriving(Eq, Show)
+data MonsterInst = MonsterInst MD.Monster MonsterAttrs
+                   deriving(Eq, Show)
 
+defaultMonsterAttrs = MonsterAttrs Nothing Nothing
 
 initialElement :: Element
 initialElement = Element { searched = 0,
@@ -90,6 +97,9 @@ instance Monad NHAction where
 
 getTerminal :: NHAction T.Terminal
 getTerminal = do ns <- get; return $ terminal ns
+
+getLevel :: NHAction Level
+getLevel = do ns <- get; return $ currentLevel ns
 
 getChan :: NHAction (RWChan B.ByteString)
 getChan = do ns <- get; return $ channels ns

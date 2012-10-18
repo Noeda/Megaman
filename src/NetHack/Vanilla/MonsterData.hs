@@ -7,7 +7,7 @@ data AttackType = AtNone | AtClaw | AtBite | AtKick | AtButt |
                   AtTouch | AtSting | AtHug | AtSpit |
                   AtEngulf | AtBreath | AtExplode |
                   AtSuicideExplode | AtGaze | AtTentacle |
-                  AtWeapon | AtCast
+                  AtWeapon | AtCast deriving (Eq, Show)
 
 data DamageType = AdPhys | AdMagicMissile | 
                   AdFire | AdCold | AdSleep |
@@ -23,18 +23,19 @@ data DamageType = AdPhys | AdMagicMissile |
                   AdPestilence | AdFamine | AdSlime |
                   AdDisenchant | AdCorrode | AdClerical |
                   AdSpell | AdRandomBreath | AdAmuletSteal |
-                  AdCurse
+                  AdCurse deriving (Eq, Show)
 
 data MonsterSize = Tiny | Small | Medium |
-                   Large | Huge | Gigantic
+                   Large | Huge | Gigantic deriving (Eq, Show)
 
 data Color = Black | Red | Green | Brown | Blue | Magenta |
              Cyan | Gray | Orange | BrightGreen | Yellow |
              BrightBlue | BrightMagenta | BrightCyan | White
+             deriving (Eq, Show)
 
 data Resistance = ReFire | ReCold | ReSleep | ReDisintegrate |
                   ReElectricity | RePoison | ReAcid |
-                  RePetrification
+                  RePetrification deriving (Eq, Show)
 
 data MonsterFlag = FlFly | FlSwim | FlAmorphous |
                    FlWallwalk | FlCling | FlTunnel |
@@ -59,11 +60,11 @@ data MonsterFlag = FlFly | FlSwim | FlAmorphous |
                    FlWantsBell | FlWantsBook | FlWantsCand |
                    FlWantsArti | FlWantsAll | FlWaitsForYou |
                    FlClose | FlCovetous | FlInfra |
-                   FlInfravisible
+                   FlInfravisible deriving (Eq, Show)
 
 data Attack = Attack { atType :: AttackType, 
                        atDamageType :: DamageType, 
-                       atDice :: D.Dice }
+                       atDice :: D.Dice } deriving (Eq, Show)
 
 data Monster = Monster { moName :: B.ByteString, 
                          moSymbol :: Char, 
@@ -86,7 +87,7 @@ data Monster = Monster { moName :: B.ByteString,
                          moResistances :: [Resistance], 
                          moConferred :: [Resistance], 
                          moFlags :: [MonsterFlag], 
-                         moColor :: Color }
+                         moColor :: Color } deriving(Eq, Show)
 
 monster :: B.ByteString -> Maybe Monster
 monster name

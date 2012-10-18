@@ -1,6 +1,7 @@
 module Terminal(Terminal(elements), emptyTerminal, isSomewhereOnScreen,
-                isSomewhereOnScreenPos, strAt, width, height,
+                isSomewhereOnScreenPos, strAt, elemAt, attrsAt, width, height,
                 Attributes(foreground, background, bold, inverse),
+                newAttributes,
                 defaultAttrs,
                 cursorIsInside, captureString, captureInteger,
                 Elem(string, attrs),
@@ -38,6 +39,9 @@ data Attributes = Attributes { foreground :: Color,
                                bold :: Bool,
                                inverse :: Bool }
                   deriving(Eq, Show)
+
+newAttributes :: Color -> Color -> Bool -> Bool -> Attributes
+newAttributes = Attributes
 
 -- Some elements may be written over by some other elements
 -- For example, full width CJK characters can take two elements in the
@@ -396,5 +400,11 @@ printOut t@(Terminal { elements = elems }) = do
       h = height t
 
 strAt :: (Int, Int) -> Terminal -> String
-strAt (x, y) (Terminal { elements = elems }) = string $ elems ! (x,y)
+strAt (x, y) t = string $ elemAt (x, y) t
+
+attrsAt :: (Int, Int) -> Terminal -> Attributes
+attrsAt (x, y) t = attrs $ elemAt (x, y) t
+
+elemAt :: (Int, Int) -> Terminal -> Elem
+elemAt (x, y) (Terminal { elements = elems }) = elems ! (x,y)
 
