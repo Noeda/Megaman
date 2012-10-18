@@ -118,7 +118,7 @@ unsafeSet :: TerminalArray -> Int -> Int -> Elem -> TerminalArray
 -- We can't use unsafeThaw/freeze unless we are also certain the terminal
 -- will not every be referenced anywhere else. Right now, we don't have
 -- that guarantee.
-unsafeSet arr x y elem = runST $ do marr <- (thaw arr) :: STTerminalArray s
+unsafeSet arr x y elem = runST $ do marr <- thaw arr :: STTerminalArray s
                                     writeArray marr (x, y) elem
                                     freeze marr
 
@@ -183,17 +183,17 @@ consumeNumberSequence :: ([Int] -> Consumer) -> Consumer
 consumeNumberSequence cont = accum []
   where
     accumAdd xs int = accum (int:xs)
-    accum xs = \t ch -> if isDigit ch
-                          then consumeInteger (accumAdd xs) t ch
-                          else if ch == ';' then t { consumer = (accum xs) }
-                                            else cont (reverse xs) t ch
+    accum xs t ch
+      | isDigit ch = consumeInteger (accumAdd xs) t ch
+      | ch == ';'  = t { consumer = accum xs }
+      | otherwise  = cont (reverse xs) t ch
 
 consumeInteger :: (Int -> Consumer) -> Consumer
 consumeInteger cont = accum 0
   where
     accum v t ch
-      | isDigit ch = t { consumer = accum (v * 10 + (digitToInt ch)) }
-      | otherwise  = (cont v) t ch
+      | isDigit ch = t { consumer = accum (v * 10 + digitToInt ch) }
+      | otherwise  = cont v t ch
 
 applyCSI :: [Int] -> Consumer
 -- Attribute set
@@ -220,7 +220,7 @@ applyCSI a1 a2 a3 = (applyCSI2 a1 a2 a3) { consumer = baseConsumer }
     applyCSI2 _ t 'A'     = t { cy = max 1 (cy1 - 1) }
     applyCSI2 [x] t 'B'   = t { cy = min h (cy1 + x) }
     applyCSI2 _ t 'B'     = t { cy = min h (cy1 + 1) }
-    applyCSI2 xs t ch = error $ (show xs) ++ (show ch)
+    applyCSI2 xs t ch = error $ show xs ++ show ch
 
     cx1 = cx a2
     cy1 = cy a2
@@ -236,8 +236,7 @@ eraseFromList t indices =
                  mapM_ (\(x, y) -> writeArray marr (x, y) curElem) indices
                  freeze marr
     elems = elements t
-    w = width t
-    h = height t
+    (w, h) = (width t, height )
     curElem = currentElem t
 
 eraseLeft :: Terminal -> Terminal
@@ -266,8 +265,7 @@ eraseBelow t@(Terminal { elements = elems, cx = x, cy = y }) =
                  mapM_ (\ex -> mapM_ (\ey ->
                    writeArray marr (ex, ey) curElem) [y+1..h]) [1..w]
                  freeze marr
-    w = width t
-    h = height t
+    (w, h) = (width t, height t)
     curElem = currentElem t
 
 eraseAbove :: Terminal -> Terminal
@@ -289,9 +287,9 @@ eraseAll = eraseAbove . eraseBelow
 
 applyAttrib :: Terminal -> Int -> Terminal
 applyAttrib t@(Terminal { attributes = attrs }) n
-  | fgToColor n /= Nothing =
+  | isJust $ fgToColor n =
       t { attributes = attrs { foreground = fromJust $ fgToColor n } }
-  | bgToColor n /= Nothing =
+  | isJust $ bgToColor n =
       t { attributes = attrs { foreground = fromJust $ bgToColor n } }
   | n == 0 = t { attributes = defaultAttrs }
   | otherwise = t
@@ -309,15 +307,15 @@ scrollUp t@(Terminal elems x y attrs _)
          h = height t
          moveElemsUp elems =
            runST $ do marr <- thaw elems :: STTerminalArray s
-                      (mapM_
+                      mapM_
                         (\y -> mapM_ (\x -> readArray marr (x, y) >>=
                                             writeArray marr (x, y-1))
                                      [1..w])
-                          [h, h-1..2])
+                          [h, h-1..2]
 
-                      (mapM_
+                      mapM_
                         (\x -> writeArray marr (x, h) (currentElem t))
-                        [1..w])
+                        [1..w]
 
                       freeze marr
 
@@ -329,13 +327,13 @@ clearLine t y = t { elements = clearElemLine elems y }
 
                   clearElemLine elems line =
                     runST $ do marr <- thaw elems :: STTerminalArray s
-                               (mapM_ (\x -> writeArray marr (x, y)
-                                               (currentElem t)) [1..w])
+                               mapM_ (\x -> writeArray marr (x, y)
+                                              (currentElem t)) [1..w]
                                freeze marr
 
 yLineToStr :: Int -> Terminal -> String
 yLineToStr row t =
-  foldr (++) [] (map string [elems ! (x, row) | x <- [1..w]])
+  concatMap string [elems ! (x, row) | x <- [1..w]]
   where
     w = width t
     elems = elements t
@@ -351,8 +349,8 @@ isSomewhereOnScreenPos str t =
     h = height t
     elems = elements t
     matchesStringAt result x y =
-      let pstr = foldr (++) [] (map string [elems ! (x1, y) | x1 <- [x..w]])
-       in if isPrefixOf str pstr
+      let pstr = concatMap string [elems ! (x1, y) | x1 <- [x..w]]
+       in if str `isPrefixOf` pstr
              then (x,y):result
              else result
 
@@ -364,18 +362,18 @@ isSomewhereOnScreen str t =
 
 linesOf :: (Int, Int) -> (Int, Int) -> Terminal -> [String]
 linesOf (left, top) (right, bottom) t =
-  [(foldr (++) [] (map string [elems ! (x, row) | x <- [left..right]]))
+  [concatMap string [elems ! (x, row) | x <- [left..right]]
    | row <- [top..bottom]]
   where
     elems = elements t
 
 captureString :: String -> (Int, Int) -> (Int, Int) -> Terminal -> Maybe String
 captureString str topleft rightbottom t =
-  R.match str (foldr (++) [] (linesOf topleft rightbottom t))
+  R.match str (concat (linesOf topleft rightbottom t))
 
 captureInteger :: String -> (Int, Int) -> (Int, Int) -> Terminal -> Maybe Int
 captureInteger str topleft rightbottom t =
-  R.match str (foldr (++) [] (linesOf topleft rightbottom t))
+  R.match str (concat (linesOf topleft rightbottom t))
 
 cursorIsInside :: (Int, Int) -> (Int, Int) -> Terminal -> Bool
 cursorIsInside (left, top) (right, bottom) t =
@@ -390,7 +388,7 @@ printOut t@(Terminal { elements = elems }) = do
     mapM_ (\x -> putChar '-') [1..(w+2)]
     putChar '\n'
     mapM_ (\y -> putChar '|' >>
-                 (mapM_ (\x -> putStr (string (elems ! (x, y)))) [1..w]) >>
+                 mapM_ (\x -> putStr (string (elems ! (x, y)))) [1..w] >>
                  putChar '|' >>
                  putChar '\n') [1..h]
     mapM_ (\x -> putChar '-') [1..(w+2)]

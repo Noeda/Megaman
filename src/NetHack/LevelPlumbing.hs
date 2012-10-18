@@ -11,6 +11,7 @@ import qualified Data.ByteString.Char8 as B
 import qualified NetHack.Vanilla.MonsterData as MD
 import Data.Foldable(foldlM)
 import NetHack.Monad.NHAction
+import Control.Monad(when)
 import Control.Monad.ST
 import Data.Array
 import Data.Array.MArray
@@ -32,12 +33,12 @@ updateBoulders :: NHAction ()
 updateBoulders = do
   ns <- get
   t <- getTerminal
-  put $ ns { currentLevel = newboulders t $ (currentLevel ns) }
+  put $ ns { currentLevel = newboulders t $ currentLevel ns }
   where
     newboulders t l = l { boulders =
       foldl (\boulders coords ->
                if T.strAt coords t == "0"
-                 then (coords:boulders)
+                 then coords:boulders
                  else boulders) [] levelCoordinates }
 
 updateMonsters :: NHAction ()
@@ -47,14 +48,13 @@ updateMonsters = do
   l <- getLevel
   newmonsters <- foldNewMonsters t l
   put $ ns { currentLevel = l { monsters = newmonsters } }
-  liftIO $ putStrLn $ show $ newmonsters
   where
     foldNewMonsters t l =
       foldlM (accumulateNewMonsters t) [] levelCoordinates
     accumulateNewMonsters t monsters coords =
       case monsterByAppearance (T.strAt coords t)
                                (T.attrsAt coords t) of
-        []      -> return $ monsters
+        []      -> return monsters
         [x]     -> return $ (coords, MonsterInst x defaultMonsterAttrs):monsters
         more    -> do result <- farLook coords
                       let (trimmed, attrs) = monsterNameTrim result
@@ -80,7 +80,7 @@ updateDungeonFeatures = do
                                  (updateElem ns arrelem coords))
                 $ filter (not . nonDungeonFeature ns) levelCoordinates
           freeze marr
-        tElemAt ns (x, y) = (T.elements (terminal ns)) ! (x, y)
+        tElemAt ns (x, y) = T.elements (terminal ns) ! (x, y)
         updateElem ns elem (x, y) =
           if looking /= lookedLike elem
             then elem { feature = deductions, lookedLike = looking }
@@ -117,29 +117,29 @@ farLookStep elems coords =
       case deduceFeatureByStr farlooked of
         Just feature -> return $ elems //
           [(coords, (elems ! coords) { feature = [feature] })]
-        Nothing      -> return $ elems
-    else return $ elems
+        Nothing      -> return elems
+    else return elems
 
 farLook :: (Int, Int) -> NHAction String
 farLook (x, y) = do
   t <- getTerminal
   let (cx, cy) = (T.cursorX t, T.cursorY t)
   let str      = ";" ++
-                 (take (x - cx) $ repeat 'l') ++
-                 (take (cx - x) $ repeat 'h') ++
-                 (take (y - cy) $ repeat 'j') ++
-                 (take (cy - y) $ repeat 'k') ++ "."
+                 replicate (x - cx) 'l' ++
+                 replicate (cx - x) 'h' ++
+                 replicate (y - cy) 'j' ++
+                 replicate (cy - y) 'k' ++ "."
   answer str
   str <- farLookResult
   shouldIskipMore <- morePrompt
-  if shouldIskipMore then answer ' ' else return ()
+  when shouldIskipMore $ answer ' '
   return str
 
 farLookResult :: NHAction String
 farLookResult = do
   t <- getTerminal
   case T.captureString "\\((.+)\\)" (1, 1) (80, 2) t of
-    Just r  -> return $ r
+    Just r  -> return r
     Nothing ->
       case T.captureString " an? (.+) *$" (1, 1) (80, 1) t of
         Just r -> return $ trim r

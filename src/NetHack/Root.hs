@@ -102,8 +102,8 @@ loopDispatcher d@(Dispatcher { ptyChannels = (chan, _),
   chunk <- atomically $ tryReadTChan chan
   case chunk of
     Nothing -> if n - lastreceived < graceTime
-                   then (threadDelay
-                           (fromIntegral ((n - lastreceived) `div` 1000))) >>
+                   then threadDelay
+                           (fromIntegral ((n - lastreceived) `div` 1000)) >>
                         loopDispatcher d
                    else do d2 <- runLogic d
                            n <- now
@@ -133,5 +133,5 @@ flushReadQueue d@(Dispatcher { ptyChannels = (_, chan),
     Just str -> writeTChan chan str >> flushReadQueue d
 
 runAI :: RWChan B.ByteString -> IO ()
-runAI channels = runNHAction (newGame channels) $ root
+runAI channels = runNHAction (newGame channels) root
 

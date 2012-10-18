@@ -143,7 +143,7 @@ printOut Level { elements = elems } = do
   mapM_ (\x -> putChar '-') [1..82]
   putChar '\n'
   mapM_ (\y -> putChar '|' >>
-               (mapM_ (\x -> putStr (featureStr $ feature (elems ! (x, y)))) [1..80]) >>
+               mapM_ (\x -> putStr (featureStr $ feature (elems ! (x, y)))) [1..80] >>
                putChar '|' >>
                putChar '\n') [2..22]
   mapM_ (\x -> putChar '-') [1..82]

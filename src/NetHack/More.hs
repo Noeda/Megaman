@@ -3,7 +3,7 @@ module NetHack.More where
 import NetHack.Monad.NHAction
 import NetHack.Messages
 import NetHack.Screens
-import Control.Monad(foldM)
+import Control.Monad(foldM, when)
 
 harmlessMores :: [NHAction Bool]
 harmlessMores = [itIsWrittenInTheBook, welcomeBackToNetHack]
@@ -12,8 +12,8 @@ skipMores :: NHAction ()
 skipMores = do
   pleaseRepeat <-
     foldM (\result ac -> do test <- ac
-                            if test then answer ' ' else return ()
+                            when test $ answer ' '
                             if result then return True else ac)
           False harmlessMores
-  if pleaseRepeat then skipMores else return ()
+  when pleaseRepeat skipMores
 

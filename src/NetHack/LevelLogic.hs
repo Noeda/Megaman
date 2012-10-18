@@ -81,7 +81,7 @@ deduceFeatureByCh '-' att
 deduceFeatureByCh '+' _ = []    -- Could be a spellbook
 deduceFeatureByCh '^' att
   | foreground att == Magenta &&
-    bold att       == True       = [Portal Nothing]
+    bold att                     = [Portal Nothing]
   | otherwise                    = [Trap]
 deduceFeatureByCh '\\' _ = [Throne]
 deduceFeatureByCh '<' att

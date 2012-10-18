@@ -37,7 +37,7 @@ monsterByAppearance str attributes =
       let m = fromJust $ MD.monster mons
        in if (mdCToTermAttrs . MD.moColor $ m) == attributes &&
              [MD.moSymbol m] == str
-               then (m:accum)
+               then m:accum
                else accum
 
 monsterNameTrim :: String -> (String, MonsterAttrs)

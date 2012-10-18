@@ -32,18 +32,18 @@ stripMessagesWithoutMore :: (Int, Int) -> (Int, Int) -> Int ->
                             T.Terminal -> [String]
 stripMessagesWithoutMore (left, top) (right, bottom) lastX t =
   let (strs, str, lastch) = (foldl (\(accum, str, lastch) ch ->
-                   if (isWhitespace lastch) && (isWhitespace ch)
-                     then if (not $ isWhitespace str)
-                            then ((reverse str):accum, [], "\x01")
+                   if isWhitespace lastch && isWhitespace ch
+                     then if not $ isWhitespace str
+                            then (reverse str:accum, [], "\x01")
                             else (accum, [], "\x01")
                      else (accum, ch++str, ch))
-                 ([], [], "\x01") $ map (\x -> [x]) $
-                 collapseNewLines $ foldl (\str x -> str ++ x) []
+                 ([], [], "\x01") $ map (: []) $
+                 collapseNewLines $ concat
                   ([T.strAt (x1, y1) t | y1 <- [top..bottom-1],
                                          x1 <- [left..right]] ++
                    [T.strAt (x1, bottom) t | x1 <- [left..(lastX-1)]]))
-      strs2 = reverse $ if (not $ isWhitespace str) then (reverse str):strs
-                                                    else strs
+      strs2 = reverse $ if not $ isWhitespace str then reverse str:strs
+                                                  else strs
    in map trim strs2
 
 -- Turns any whitespace sequence in a string that has carriage returns or
@@ -66,8 +66,8 @@ collapseNewLines str = acc [] str
    collapseWS xs acc True     = ' ':collapseNewLines xs
 
 trim :: String -> String
-trim = reverse . dropWhile (isWhitespaceCh) .
-       reverse . dropWhile (isWhitespaceCh)
+trim = reverse . dropWhile isWhitespaceCh .
+       reverse . dropWhile isWhitespaceCh
 
 isWhitespaceCh :: Char -> Bool
 isWhitespaceCh ' '  = True

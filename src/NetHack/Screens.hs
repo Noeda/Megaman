@@ -9,16 +9,14 @@ import qualified Terminal as T
 ifIn :: NHAction Bool -> NHAction a -> NHAction (Either a ())
 ifIn testaction dothis = do
   result <- testaction
-  case result of
-    True  -> dothis >>= (return . Left)
-    False -> return $ Right ()
+  if result then liftM left dothis
+            else return $ Right ()
 
 ifNotIn :: NHAction Bool -> NHAction a -> NHAction (Either a ())
 ifNotIn testaction dothis = do
   result <- testaction
-  case (not result) of
-    True  -> dothis >>= (return . Left)
-    False -> return $ Right ()
+  if not result then liftM left dothis
+                else return $ Right ()
 
 isSomewhereOnScreen :: String -> NHAction Bool
 isSomewhereOnScreen str = do
@@ -38,7 +36,7 @@ restoringSave = isMessageOnScreen "Restoring save file..."
 gameScreen = do t <- getTerminal
                 let b1 = T.cursorIsInside (1, 2) (80, 22) t
                 b2 <- morePrompt
-                return $ b1 && (not b2)
+                return $ b1 && not b2
 
 isMessageOnScreen :: String -> NHAction Bool
 isMessageOnScreen str = do ns <- get; return (str `elem` messages ns)
