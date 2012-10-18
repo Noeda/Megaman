@@ -21,6 +21,8 @@ executable megaman
                        NetHack.Root,
                        NetHack.Algorithms.Dice,
                        Terminal,
+                       Misc,
+                       Regex,
 
                        NetHack.ReadWriteChan,
                        NetHack.Monad.NHAction,
