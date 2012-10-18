@@ -25,13 +25,13 @@ restoreSave =
 -- If the combo is invalid or something else bad happens, it bails out.
 startCharacter :: Combo -> NHAction ()
 startCharacter combo = do
-  ifIn shallIPick       (answer 'n')        
-  ifIn pickARole        (answer role1)      
-  ifIn pickTheRace      (answer race1)      
-  ifIn pickTheGender    (answer gender1)    
-  ifIn pickTheAlignment (answer alignment1) 
+  ifIn shallIPick       (answer 'n')
+  ifIn pickARole        (answer role1)
+  ifIn pickTheRace      (answer race1)
+  ifIn pickTheGender    (answer gender1)
+  ifIn pickTheAlignment (answer alignment1)
 
-  skipMores                                 
+  skipMores
 
   void $ ifNotIn gameScreen (bailout "I was not able to pick a character.")
 
