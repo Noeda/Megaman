@@ -8,5 +8,5 @@ This is a NetHack playing bot. Work in progress.
 
 Dungeon options should be:
 
-    OPTIONS=dungeon: |--------||.-|++##.##<><>_9\\#{}.}..## 6}
+    OPTIONS=dungeon: |--------||.-|++##.##<><>_9\\}{}.}..## 6}
 

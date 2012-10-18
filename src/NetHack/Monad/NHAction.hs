@@ -74,6 +74,7 @@ data Feature = DownStairs (Maybe LevelID) |
                Rock             |
                Fountain         |
                IronBars         |
+               Sink             |
                Unknown
                deriving(Eq, Show)
 

@@ -46,6 +46,7 @@ deduceFeatureByStr "fire trap" = Just Trap
 deduceFeatureByStr "sleeping gas trap" = Just Trap
 deduceFeatureByStr "falling rock trap" = Just Trap
 deduceFeatureByStr "magic portal" = Just (Portal Nothing)
+deduceFeatureByStr "sink" = Just Sink
 deduceFeatureByStr _ = Nothing
 
 deduceFeatureByCh :: Char -> Attributes -> [Feature]
@@ -97,6 +98,8 @@ deduceFeatureByCh ' ' att = []
 deduceFeatureByCh '}' att
   | foreground att == Blue       = [Water]
   | foreground att == Red        = [Lava]
+  | foreground att == White ||
+    foreground att == Default    = [Sink]
   | otherwise                    = []
 deduceFeatureByCh '{' att
   | foreground att == Blue       = [Fountain]
