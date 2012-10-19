@@ -11,8 +11,6 @@ import qualified Data.Map as M
 
 import Data.Foldable(foldl')
 
-import System.IO.Unsafe
-
 import qualified Data.ByteString.Char8 as B
 import qualified NetHack.Imported.MonsterData as MD
 import qualified Regex as R
@@ -81,8 +79,6 @@ monsterByAppearance str attributes =
   foldl accumulateMonsters [] $ monsterMapByStringLookup str
   where
     accumulateMonsters accum mons =
-       let x = unsafePerformIO $ putStrLn $ show (mdCToTermAttributes . MD.moColor $ mons) ++ " .... " ++ show attributes ++ " .. " ++ str ++ " . " ++ show mons
-        in x `seq`
        if (mdCToTermAttributes . MD.moColor $ mons) == attributes &&
            [tunedMoSymbol mons] == str
              then mons:accum
