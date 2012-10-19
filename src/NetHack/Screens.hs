@@ -9,13 +9,13 @@ import qualified Terminal as T
 ifIn :: NHAction Bool -> NHAction a -> NHAction (Either a ())
 ifIn testaction dothis = do
   result <- testaction
-  if result then liftM left dothis
+  if result then liftM Left dothis
             else return $ Right ()
 
 ifNotIn :: NHAction Bool -> NHAction a -> NHAction (Either a ())
 ifNotIn testaction dothis = do
   result <- testaction
-  if not result then liftM left dothis
+  if not result then liftM Left dothis
                 else return $ Right ()
 
 isSomewhereOnScreen :: String -> NHAction Bool
