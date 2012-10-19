@@ -50,6 +50,7 @@ freshMonsterInstance mon =
 
 monsterSymbolTuning :: Char -> Char
 monsterSymbolTuning ' ' = '8'   -- ghosts
+monsterSymbolTuning '\'' = '7'  -- golems
 monsterSymbolTuning ch  = ch
 
 tunedMoSymbol :: MD.Monster -> Char
