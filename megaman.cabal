@@ -18,9 +18,6 @@ executable megaman
   hs-source-dirs:      src
   main-is:             Megaman.hs
 
-  other-modules:       Terminal.Data,
-                       Terminal.Terminal
-
   build-depends:       base ==4.5.*,
                        bytestring == 0.10.*,
                        unix == 2.6.*,
