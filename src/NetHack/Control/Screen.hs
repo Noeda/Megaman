@@ -1,5 +1,6 @@
 module NetHack.Control.Screen
   (cursorIsAt, ifIn, ifNotIn,
+   isSomewhereOnScreen,
    shallIPick,
    pickARole,
    pickTheRace,

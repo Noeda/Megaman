@@ -1,11 +1,15 @@
 module NetHack.Data.Item
   (Item(),
+   unknownItem,
    couldHaveItems)
   where
 
 import NetHack.Data.Appearance
 
-data Item = Item deriving(Show, Eq)
+data Item = UnknownItem String deriving(Show, Eq)
+
+unknownItem :: String -> Item
+unknownItem = UnknownItem
 
 class CouldHaveItemsable a where
   couldHaveItems :: a -> Bool

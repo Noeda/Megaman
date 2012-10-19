@@ -15,6 +15,7 @@ module Terminal.Data
    string,
    elements,
    strAt,
+   lineAt,
    attributesAt,
    cursorX,
    cursorY,
@@ -44,6 +45,11 @@ defaultElement = Element " " defaultAttributes Independent
 
 strAt :: (Int, Int) -> Terminal -> String
 strAt (x, y) t = string $ elemAt (x, y) t
+
+lineAt :: Int -> Terminal -> String
+lineAt y t = concatMap (string . (flip elemAt) t) [(x1, y) | x1 <- [1..w]]
+  where
+  w = width t
 
 attributesAt :: (Int, Int) -> Terminal -> Attributes
 attributesAt (x, y) t = attributes $ elemAt (x, y) t

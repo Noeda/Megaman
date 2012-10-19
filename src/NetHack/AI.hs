@@ -4,6 +4,7 @@ import Control.Monad
 import NetHack.Monad.NHAction
 import NetHack.Data.Combo
 import NetHack.Data.Alignment
+import NetHack.Control.ItemListing
 import NetHack.Control.Screen
 import NetHack.Control.More
 import NetHack.Control.Level
@@ -47,5 +48,6 @@ exploreLevel :: NHAction ()
 exploreLevel = do
   skipMores
   updateCurrentLevel
+  updateInventoryIfNecessary
 
 

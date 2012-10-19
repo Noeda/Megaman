@@ -1,14 +1,19 @@
 module NetHack.Monad.NHAction
   (runNHAction, answer, NHAction(), update, getTerminalM, get, putLevelM,
+   putInventoryM, putInventoryNeedsUpdateM,
    getLevelM, bailout)
   where
 
 import NetHack.Data.Level(Level)
 import qualified NetHack.Data.NetHackState as NS
 import NetHack.Data.Messages
+import NetHack.Data.Item(Item)
+
 import Terminal.Data(Terminal)
 import Terminal.Terminal
 import Communication.RWChan
+
+import qualified Data.Map as M
 
 import Control.Concurrent.STM
 import Control.Monad.State
@@ -37,6 +42,13 @@ getLevelM = do ns <- get; return $ NS.currentLevel ns
 
 putLevelM :: Level -> NHAction ()
 putLevelM l = do ns <- get; put $ NS.setLevel ns l
+
+putInventoryM :: M.Map Char Item -> NHAction ()
+putInventoryM i = do ns <- get; put $ NS.setInventory ns i
+
+putInventoryNeedsUpdateM :: Bool -> NHAction ()
+putInventoryNeedsUpdateM b =
+  do ns <- get; put $ NS.setInventoryNeedsUpdate ns b
 
 bailout = error
 

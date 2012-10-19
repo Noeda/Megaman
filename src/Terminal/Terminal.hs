@@ -1,5 +1,7 @@
 module Terminal.Terminal(emptyTerminal, isSomewhereOnScreenPos, handleChar,
                          isSomewhereOnScreen, cursorIsInside, captureString,
+                         isSomewhereOnScreenPosWithAttributes,
+                         isSomewhereOnScreenPosWithAttributesRegex,
                          captureInteger, printOut) where
 
 import Terminal.Data
@@ -289,6 +291,30 @@ yLineToStr row t =
   where
     w = width t
     elems = elements t
+
+-- This is a long function name.
+isSomewhereOnScreenPosWithAttributesRegex :: String -> Attributes ->
+                                             Terminal -> [(Int, Int)]
+isSomewhereOnScreenPosWithAttributesRegex regexstr attrs t =
+  foldl (\result x -> foldl (\result y -> matchesRegexAt result x y) result
+                            [1..h]) [] [1..w]
+  where
+    (w, h) = (width t, height t)
+    elems = elements t
+    matchesRegexAt result x y =
+      let pstr = concatMap string [elems ! (x1, y) | x1 <- [x..w]]
+       in if fromJust (R.match regexstr pstr :: Maybe Bool)
+            then (x, y):result
+            else result
+
+isSomewhereOnScreenPosWithAttributes :: String -> Attributes ->
+                                        Terminal -> [(Int, Int)]
+isSomewhereOnScreenPosWithAttributes str attrs t =
+  filter sameAttributes $ isSomewhereOnScreenPos str t
+  where
+    sameAttributes (x, y) =
+      all (\coords -> attributesAt coords t == attrs)
+          [(x1, y) | x1 <- [x..x+length str-1]]
 
 isSomewhereOnScreenPos :: String -> Terminal -> [(Int, Int)]
 isSomewhereOnScreenPos str t =

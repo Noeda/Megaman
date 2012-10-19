@@ -22,6 +22,10 @@ instance Matcher Int where
                       Nothing -> Nothing
                       Just str -> readMay str :: Maybe Int
 
+instance Matcher Bool where
+  match regex str = case compileAndExecute regex str of
+                      Nothing -> Just False
+                      Just _  -> Just True
 
 compile :: String -> R.Regex
 compile str =
