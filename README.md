@@ -8,7 +8,7 @@ This is a NetHack playing bot. Work in progress.
 
 Dungeon options should be (at least):
 
-    OPTIONS=dungeon: |--------||.-|++##.##<><>_9\\}{}.}..## 6}
+    OPTIONS=dungeon: |--------||.-|}}##.##<><>_9\\}{}.}..## 6}
     OPTIONS=monsters:abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ@87&;:~]
     OPTIONS=!autopickup
     OPTIONS=!mail

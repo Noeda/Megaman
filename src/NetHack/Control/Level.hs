@@ -4,7 +4,9 @@ import Data.Foldable(foldlM)
 
 import NetHack.Data.Level
 import NetHack.Data.NetHackState
-import NetHack.Data.MonsterInstance
+import NetHack.Data.Appearance
+import NetHack.Data.Item
+import qualified NetHack.Data.MonsterInstance as MI
 import qualified NetHack.Imported.MonsterData as MD
 import NetHack.Monad.NHAction
 import NetHack.Control.Farlook
@@ -13,6 +15,8 @@ import Control.Monad.State
 import Control.Monad.ST
 import Data.Array.ST
 import Data.Array((!), Array, (//))
+
+import qualified Data.Map as M
 
 import qualified Data.ByteString.Char8 as B
 
@@ -24,92 +28,86 @@ captureLevelFromScreen = T.captureInteger "Dlvl:([0-9]+)" (1, 23) (80, 23)
 
 type STElementArray s = ST s (STArray s (Int, Int) Element)
 
-updateCurrentLevel :: NHAction ()
-updateCurrentLevel = do
-  updateMonsters
-  updateBoulders
-  updateDungeonFeatures
+data ElementCandidate = Boulder |
+                        Monster MD.Monster |
+                        MonsterInstance MI.MonsterInstance |
+                        DungeonFeature Feature
+                        deriving(Show,Eq)
 
-updateBoulders :: NHAction ()
-updateBoulders = do
-  t <- getTerminalM
-  lev <- getLevelM
-  putLevelM $ newboulders t lev
-  where
-    newboulders t l = setBoulders l $
-      foldl (\boulders coords ->
-               if T.strAt coords t == "0"
-                 then coords:boulders
-                 else boulders) [] levelCoordinates
+boulderCandidates :: Appearance -> [ElementCandidate]
+boulderCandidates ("0", _) = [Boulder]
+boulderCandidates _        = []
+
+featureCandidates :: Appearance -> [ElementCandidate]
+featureCandidates ([x], attributes) =
+  map DungeonFeature $ featureByCh x attributes
+featureCandidates _ = []
+
+monsterCandidates :: Appearance -> [ElementCandidate]
+monsterCandidates (str, attributes) =
+  map Monster $ MI.monsterByAppearance (str, noInversion attributes)
+
+farLookFilter :: String -> ElementCandidate -> [ElementCandidate]
+farLookFilter "boulder" Boulder = [Boulder]
+farLookFilter _ Boulder = []
+farLookFilter str d@(DungeonFeature oldFeature) =
+  case featureByStr str of
+    Nothing -> []
+    Just f  -> if oldFeature == f then [d] else []
+
+farLookFilter str m@(Monster mdata) =
+  let (name, mattributes) = MI.monsterNameTrim str
+   in case MI.monsterByName name of
+        Nothing -> []
+        Just m  -> if m == mdata
+                   then [MonsterInstance $ MI.newMonsterInstance m mattributes]
+                   else []
+
+updateWithCandidate :: Element -> ElementCandidate -> Element
+updateWithCandidate element (Boulder) = setBoulder element True
+updateWithCandidate element (DungeonFeature f) = setFeature element (Just f)
+updateWithCandidate element (MonsterInstance mi) =
+  setMonsterInstance element (Just mi)
 
 noInversion :: T.Attributes -> T.Attributes
 noInversion attrs = T.setInverse attrs False
 
-updateMonsters :: NHAction ()
-updateMonsters = do
-  t <- getTerminalM
+updateCurrentLevel :: NHAction ()
+updateCurrentLevel = do
   l <- getLevelM
-  newmonsters <- foldNewMonsters t l
-  putLevelM $ setMonsters l newmonsters
+  t <- getTerminalM
+  newElements <- foldM (updateLevelElement l t) (elements l) $
+                   levelCoordinatesExcept (T.coords t)
+  putLevelM $ setElements l newElements
   where
-    foldNewMonsters t l =
-      foldlM (accumulateNewMonsters t) [] levelCoordinates
-    accumulateNewMonsters t monsters coords =
-      case monsterByAppearance (T.strAt coords t)
-                               (noInversion $ T.attributesAt coords t) of
-        []      -> return monsters
-        [x]     -> do return $ (coords, freshMonsterInstance x):monsters
-        more    -> do result <- farLook coords
-                      let (trimmed, attrs) = monsterNameTrim result
-                      case MD.monster $ B.pack trimmed of
-                        Nothing -> return monsters
-                        Just m  -> return $
-                          (coords, newMonsterInstance m attrs):monsters
+    updateLevelElement level terminal elements coords =
+      let appearance =
+            (T.strAt coords terminal, T.attributesAt coords terminal)
+          oldAppearance = lookedLike elem
+          str = fst appearance
+          elem = M.findWithDefault (initialElement weirdAppearance)
+                   coords elements
+          updateElem e = M.insert coords (setAppearance e appearance) elements
 
-nonDungeonFeatureAt :: NetHackState -> (Int, Int) -> Bool
-nonDungeonFeatureAt ns (x, y) =
-  not $ isDungeonFeature (T.strAt (x, y) $ terminal ns)
-
-updateDungeonFeatures :: NHAction ()
-updateDungeonFeatures = do
-  ns <- get
-  put $ ns { currentLevel = (currentLevel ns) { elements = newarr ns } }
-  farLookUncertainPlaces
-  where newarr ns = runST $ do
-          marr <- (thaw $ (elements . currentLevel) ns) :: STElementArray s
-          mapM_ (\coords -> do arrelem <- readArray marr coords
-                               writeArray marr coords
-                                 (updateElem ns arrelem coords))
-                $ filter (not . nonDungeonFeatureAt ns) levelCoordinates
-          freeze marr
-        tElemAt ns (x, y) = T.elements (terminal ns) ! (x, y)
-        updateElem ns elem (x, y) =
-          if looking /= lookedLike elem
-            then elem { feature = deductions, lookedLike = looking }
-            else elem
-          where
-            tElem = tElemAt ns (x, y)
-            looking = (T.string tElem, T.attributes tElem)
-            oldfeatures = feature elem
-            deductions = featureByCh ((head . T.string) tElem)
-                                     (T.attributes tElem)
-
-farLookUncertainPlaces :: NHAction ()
-farLookUncertainPlaces = do
-  level <- getLevelM
-  let oldElems = elements level
-  newElems <- foldlM farLookStep oldElems levelCoordinates
-  putLevelM $ setElements level newElems
-
-farLookStep :: Array (Int, Int) Element ->
-               (Int, Int) ->
-               NHAction (Array (Int, Int) Element)
-farLookStep elems coords =
- if (length . feature) (elems ! coords) > 1 then do
-      farlooked <- farLook coords
-      case featureByStr farlooked of
-        Just feature -> return $ elems //
-          [(coords, (elems ! coords) { feature = [feature] })]
-        Nothing      -> return elems
-    else return elems
+       in if appearance /= oldAppearance
+     then let candidates = concat [monsterCandidates appearance,
+                                   featureCandidates appearance,
+                                   boulderCandidates appearance]
+           in do newCandidates <- if length candidates > 1
+                   then do farlooked <- farLook coords
+                           return $ concatMap
+                                      (farLookFilter farlooked) candidates
+                   else return $ candidates
+                 case length newCandidates of
+                   0 -> return $ updateElem elem
+                   1 -> return $ updateElem
+                     (updateWithCandidate elem $ head newCandidates)
+                   _ -> if couldHaveItems appearance
+                          then return $
+                               updateElem $ setUnexploredItems elem True
+                          else error $ "One of the squares on the level is " ++
+                                     "confusing me. It looks like (" ++
+                                     str ++ ") and the candidates are: " ++
+                                     show newCandidates
+     else return elements
 

@@ -1,6 +1,7 @@
 module NetHack.Data.MonsterInstance
   (MonsterInstance(),
    monsterNameTrim,
+   monsterByName,
    newMonsterInstance,
    freshMonsterInstance,
    monsterByAppearance)
@@ -10,6 +11,8 @@ import Data.Maybe
 import qualified Data.Map as M
 
 import Data.Foldable(foldl')
+
+import NetHack.Data.Appearance
 
 import qualified Data.ByteString.Char8 as B
 import qualified NetHack.Imported.MonsterData as MD
@@ -75,8 +78,11 @@ monsterMapByStringLookup str =
     Nothing -> []
     Just l  -> l
 
-monsterByAppearance :: String -> T.Attributes -> [MD.Monster]
-monsterByAppearance str attributes =
+monsterByName :: String -> Maybe MD.Monster
+monsterByName str = MD.monster $ B.pack str
+
+monsterByAppearance :: Appearance -> [MD.Monster]
+monsterByAppearance (str, attributes) =
   foldl accumulateMonsters [] $ monsterMapByStringLookup str
   where
     accumulateMonsters accum mons =

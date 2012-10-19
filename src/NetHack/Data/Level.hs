@@ -2,41 +2,54 @@ module NetHack.Data.Level
   (initialElement,
    Level(),
    newLevel,
-   setBoulders,
-   setMonsters,
    feature,
    elements,
    setElements,
    lookedLike,
    Element(),
+   Feature(),
+   weirdAppearance,
    featureByStr,
    featureByCh,
+   setAppearance,
+   setBoulder,
+   setFeature,
+   setMonsterInstance,
+   setUnexploredItems,
    isDungeonFeature,
-   levelCoordinates)
+   levelCoordinates,
+   levelCoordinatesExcept)
   where
 
 import NetHack.Data.MonsterInstance(MonsterInstance)
 import Terminal.Data(Attributes, Color(..), foreground, bold, defaultAttributes)
 
 import Data.Array(Array, array)
+import Data.List((\\))
+
+import qualified Data.Map as M
+import qualified Terminal.Data as T
 
 import NetHack.Data.Alignment
 import NetHack.Data.Item
 
-data Level = Level { number   :: Int,
-                     levelId  :: Int,
-                     elements :: Array (Int, Int) Element,
-                     endGame  :: Bool,
-                     boulders :: [(Int, Int)],
-                     items    :: [((Int, Int), Item)],
-                     monsters :: [((Int, Int), MonsterInstance)] }
+import NetHack.Data.Appearance
+
+data Level = Level { number    :: Int,
+                     levelId   :: Int,
+                     elements  :: M.Map (Int, Int) Element,
+                     endGame   :: Bool }
                      deriving(Show)
 
-data Element = Element { searched :: Int,
-                         walked   :: Int,
-                         diggable :: Bool,
-                         lookedLike :: (String, Attributes),
-                         feature  :: [Feature] }
+data Element = Element { searched   :: Int,
+                         walked     :: Int,
+                         diggable   :: Bool,
+                         boulder    :: Bool,
+                         lookedLike :: Appearance,
+                         unexploredItems :: Bool,
+                         items      :: [Item],
+                         monster    :: Maybe MonsterInstance,
+                         feature    :: Maybe Feature }
                        deriving(Show)
 
 type LevelID = Int
@@ -69,34 +82,44 @@ data Feature = DownStairs (Maybe LevelID) |
                Unknown
                deriving(Eq, Show)
 
-setElements :: Level -> Array (Int, Int) Element -> Level
-setElements lev arr = lev { elements = arr }
+weirdAppearance :: Appearance
+weirdAppearance = ("pahvilaatikko", T.defaultAttributes)
 
-setBoulders :: Level -> [(Int, Int)] -> Level
-setBoulders lev boulders = lev { boulders = boulders }
+initialElement :: Appearance -> Element
+initialElement appearance =
+  Element { searched = 0,
+            walked = 0,
+            diggable = True,
+            boulder = False,
+            lookedLike = appearance,
+            unexploredItems = False,
+            items = [],
+            monster = Nothing,
+            feature = Nothing }
 
-setMonsters :: Level -> [((Int, Int), MonsterInstance)] -> Level
-setMonsters lev monsters = lev { monsters = monsters }
+setElements :: Level -> M.Map (Int, Int) Element -> Level
+setElements level map = level { elements = map }
 
-initialElement :: Element
-initialElement = Element { searched = 0,
-                           walked = 0,
-                           diggable = True,
-                           lookedLike = ("karamelli", defaultAttributes),
-                           feature = [] }
+setUnexploredItems :: Element -> Bool -> Element
+setUnexploredItems e b = e { unexploredItems = b }
+
+setAppearance :: Element -> Appearance -> Element
+setAppearance e a = e { lookedLike = a }
+
+setBoulder :: Element -> Bool -> Element
+setBoulder e b = e { boulder = b }
+
+setFeature :: Element -> Maybe Feature -> Element
+setFeature e f = e { feature = f }
+
+setMonsterInstance :: Element -> Maybe MonsterInstance -> Element
+setMonsterInstance e m = e { monster = m }
 
 newLevel :: Int -> (Level, Int)
 newLevel id = (Level { number = 1,
                        levelId = id,
-                       elements = array ((1, 2) :: (Int, Int),
-                                         (80, 22) :: (Int, Int))
-                                        [((x,y), initialElement) |
-                                           x <- [1..80],
-                                           y <- [2..22]],
-                       endGame = False,
-                       boulders = [],
-                       items = [],
-                       monsters = [] },
+                       elements = M.empty,
+                       endGame = False },
                id + 1)
 
 -- for debugging
@@ -173,7 +196,6 @@ featureByCh '9' att
 featureByCh '-' att
   | foreground att == White      = [Wall]
   | foreground att == Yellow     = [OpenedDoor]
-featureByCh '+' _ = []    -- Could be a spellbook
 featureByCh '^' att
   | foreground att == Magenta &&
     bold att                     = [Portal Nothing]
@@ -192,6 +214,7 @@ featureByCh '}' att
   | foreground att == Blue       = [Water]
   | foreground att == Red        = [Lava]
   | foreground att == White      = [Sink]
+  | foreground att == Yellow     = [ClosedDoor]
   | otherwise                    = []
 featureByCh '{' att
   | foreground att == Blue       = [Fountain]
@@ -210,4 +233,7 @@ isDungeonFeature _   = True
 
 levelCoordinates :: [(Int, Int)]
 levelCoordinates = [(x, y) | x <- [1..80], y <- [2..22]]
+
+levelCoordinatesExcept :: (Int, Int) -> [(Int, Int)]
+levelCoordinatesExcept coords = levelCoordinates \\ [coords]
 

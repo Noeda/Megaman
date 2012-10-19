@@ -17,7 +17,8 @@ module Terminal.Data
    strAt,
    attributesAt,
    cursorX,
-   cursorY)
+   cursorY,
+   coords)
   where
 
 import Terminal.Internal
@@ -31,6 +32,9 @@ cursorX = cx
 
 cursorY :: Terminal -> Int
 cursorY = cy
+
+coords :: Terminal -> (Int, Int)
+coords t = (cursorX t, cursorY t)
 
 defaultAttributes :: Attributes
 defaultAttributes = Attributes White Black False False

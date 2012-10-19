@@ -3,6 +3,7 @@ module NetHack.Control.Farlook
   where
 
 import Control.Monad(when)
+import Control.Monad.IO.Class(liftIO)
 import NetHack.Monad.NHAction
 import NetHack.Control.Screen
 import NetHack.Data.Messages(trim)
