@@ -38,14 +38,14 @@ executable megaman
                        NetHack.Messages,
                        NetHack.LogicPlumbing
 
-  build-depends:       base ==4.6.*,
+  build-depends:       base ==4.5.*,
                        bytestring == 0.10.*,
                        unix == 2.6.*,
                        enumerator == 0.4.*,
                        transformers == 0.3.*,
                        regex-base == 0.93.*,
                        regex-tdfa == 1.1.*,
-                       stm == 2.4,
+                       stm == 2.3,
                        safe == 0.3.*,
                        mtl == 2.1.*,
                        array == 0.4.*,
