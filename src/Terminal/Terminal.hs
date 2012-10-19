@@ -28,8 +28,8 @@ fgToColor 34 = Just Blue
 fgToColor 35 = Just Magenta
 fgToColor 36 = Just Cyan
 fgToColor 37 = Just White
-fgToColor 38 = Just Default
-fgToColor 39 = Just Default
+fgToColor 38 = Just White
+fgToColor 39 = Just White
 fgToColor _ = Nothing
 
 bgToColor :: Int -> Maybe Color
@@ -41,9 +41,22 @@ bgToColor 44 = Just Blue
 bgToColor 45 = Just Magenta
 bgToColor 46 = Just Cyan
 bgToColor 47 = Just White
-bgToColor 48 = Just Default
-bgToColor 49 = Just Default
+bgToColor 48 = Just Black
+bgToColor 49 = Just Black
 bgToColor _ = Nothing
+
+colorToFg :: Color -> Int
+colorToFg Black = 30
+colorToFg Red = 31
+colorToFg Green = 32
+colorToFg Yellow = 33
+colorToFg Blue = 34
+colorToFg Magenta = 35
+colorToFg Cyan = 36
+colorToFg White = 37
+
+colorToBg :: Color -> Int
+colorToBg c = colorToFg c + 10
 
 handleChar :: Terminal -> Char -> Terminal
 handleChar t@(Terminal { consumer = c }) = c t
@@ -222,6 +235,10 @@ eraseAll = eraseAbove . eraseBelow
 
 applyAttrib :: Terminal -> Int -> Terminal
 applyAttrib t@(Terminal { currentAttributes = attrs }) n
+  | n == 1               = t { currentAttributes = attrs { bold = True } }
+  | n == 22              = t { currentAttributes = attrs { bold = False } }
+  | n == 7               = t { currentAttributes = attrs { inverse = True } }
+  | n == 27              = t { currentAttributes = attrs { inverse = False } }
   | isJust $ fgToColor n =
       t { currentAttributes = attrs { foreground = fromJust $ fgToColor n } }
   | isJust $ bgToColor n =
@@ -320,10 +337,15 @@ cursorIsInside (left, top) (right, bottom) t =
 -- For debugging
 printOut :: Terminal -> IO ()
 printOut t@(Terminal { elements = elems }) = do
+    neutralizeAttributes
     mapM_ (\x -> putChar '-') [1..(w+2)]
     putChar '\n'
-    mapM_ (\y -> putChar '|' >>
-                 mapM_ (\x -> putStr (string (elems ! (x, y)))) [1..w] >>
+    mapM_ (\y -> neutralizeAttributes >>
+                 putChar '|' >>
+                 mapM_ (\x -> do let e = elems ! (x, y)
+                                 setAttributes (attributes e)
+                                 putStr (string e)) [1..w] >>
+                 neutralizeAttributes >>
                  putChar '|' >>
                  putChar '\n') [1..h]
     mapM_ (\x -> putChar '-') [1..(w+2)]
@@ -331,6 +353,16 @@ printOut t@(Terminal { elements = elems }) = do
     where
       w = width t
       h = height t
+      neutralizeAttributes = putStr "\x1b[0m"
+      setAttributes attrs = putStr $ "\x1b["
+                              ++ show (colorToFg (foreground attrs))
+                              ++ ";"
+                              ++ show (colorToBg (background attrs))
+                              ++ ";"
+                              ++ (if bold attrs then "1" else "22")
+                              ++ ";"
+                              ++ (if inverse attrs then "7" else "27")
+                              ++ "m"
 
 emptyTerminal :: Int -> Int -> Terminal
 emptyTerminal width height = Terminal (array ((1,1), (width, height))

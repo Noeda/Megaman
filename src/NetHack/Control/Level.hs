@@ -42,6 +42,9 @@ updateBoulders = do
                  then coords:boulders
                  else boulders) [] levelCoordinates
 
+noInversion :: T.Attributes -> T.Attributes
+noInversion attrs = T.setInverse attrs False
+
 updateMonsters :: NHAction ()
 updateMonsters = do
   t <- getTerminalM
@@ -53,10 +56,9 @@ updateMonsters = do
       foldlM (accumulateNewMonsters t) [] levelCoordinates
     accumulateNewMonsters t monsters coords =
       case monsterByAppearance (T.strAt coords t)
-                               (T.attributesAt coords t) of
+                               (noInversion $ T.attributesAt coords t) of
         []      -> return monsters
-        [x]     -> return $
-                     (coords, freshMonsterInstance x):monsters
+        [x]     -> do return $ (coords, freshMonsterInstance x):monsters
         more    -> do result <- farLook coords
                       let (trimmed, attrs) = monsterNameTrim result
                       case MD.monster $ B.pack trimmed of

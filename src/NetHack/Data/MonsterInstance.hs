@@ -7,7 +7,13 @@ module NetHack.Data.MonsterInstance
   where
 
 import Data.Maybe
+import qualified Data.Map as M
 
+import Data.Foldable(foldl')
+
+import System.IO.Unsafe
+
+import qualified Data.ByteString.Char8 as B
 import qualified NetHack.Imported.MonsterData as MD
 import qualified Regex as R
 import qualified Terminal.Data as T
@@ -44,16 +50,43 @@ mdCToTermAttributes MD.White         = T.newAttributes T.White T.Black True Fals
 freshMonsterInstance mon =
   newMonsterInstance mon defaultMonsterAttributes
 
+monsterSymbolTuning :: Char -> Char
+monsterSymbolTuning ' ' = '8'   -- ghosts
+monsterSymbolTuning ch  = ch
+
+tunedMoSymbol :: MD.Monster -> Char
+tunedMoSymbol = monsterSymbolTuning . MD.moSymbol
+
+monsterMapByString :: M.Map String [MD.Monster]
+monsterMapByString =
+  foldl' (\map name -> let mon = fromJust $ MD.monster name
+                           symb = [tunedMoSymbol mon]
+                        in M.insert symb
+                             (case M.lookup symb map of
+                                Nothing      -> [mon]
+                                Just oldlist -> mon:oldlist)
+                             map)
+
+         M.empty
+         MD.allMonsterNames
+
+monsterMapByStringLookup :: String -> [MD.Monster]
+monsterMapByStringLookup str =
+  case M.lookup str monsterMapByString of
+    Nothing -> []
+    Just l  -> l
+
 monsterByAppearance :: String -> T.Attributes -> [MD.Monster]
 monsterByAppearance str attributes =
-  foldl accumulateMonsters [] MD.allMonsterNames
+  foldl accumulateMonsters [] $ monsterMapByStringLookup str
   where
     accumulateMonsters accum mons =
-      let m = fromJust $ MD.monster mons
-       in if (mdCToTermAttributes . MD.moColor $ m) == attributes &&
-             [MD.moSymbol m] == str
-               then m:accum
-               else accum
+       let x = unsafePerformIO $ putStrLn $ show (mdCToTermAttributes . MD.moColor $ mons) ++ " .... " ++ show attributes ++ " .. " ++ str ++ " . " ++ show mons
+        in x `seq`
+       if (mdCToTermAttributes . MD.moColor $ mons) == attributes &&
+           [tunedMoSymbol mons] == str
+             then mons:accum
+             else accum
 
 monsterNameTrim :: String -> (String, MonsterAttributes)
 monsterNameTrim monsname = peacefulness monsname

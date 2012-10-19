@@ -152,32 +152,26 @@ featureByStr _ = Nothing
 
 featureByCh :: Char -> Attributes -> [Feature]
 featureByCh '.' att
-  | foreground att == Default ||
-    foreground att == White      = [Floor]
+  | foreground att == White      = [Floor]
   | foreground att == Yellow     = [DrawbridgeOpened]
   | otherwise                    = []
 featureByCh '#' att
-  | foreground att == Default ||
-    foreground att == White      = [Corridor]
+  | foreground att == White      = [Corridor]
   | foreground att == Green      = [Tree]
   | foreground att == Cyan       = [IronBars]
   | otherwise                    = []
 featureByCh '6' att
-  | foreground att == Default ||
-    foreground att == White      = [Cloud]
+  | foreground att == White      = [Cloud]
   | otherwise                    = []
 featureByCh '|' att
-  | foreground att == Default ||
-    foreground att == White      = [Wall]
+  | foreground att == White      = [Wall]
   | foreground att == Yellow     = [OpenedDoor]
   | otherwise                    = []
 featureByCh '9' att
-  | foreground att == Default ||
-    foreground att == White      = [Grave]
+  | foreground att == White      = [Grave]
   | otherwise                    = []
 featureByCh '-' att
-  | foreground att == Default ||
-    foreground att == White      = [Wall]
+  | foreground att == White      = [Wall]
   | foreground att == Yellow     = [OpenedDoor]
 featureByCh '+' _ = []    -- Could be a spellbook
 featureByCh '^' att
@@ -186,28 +180,24 @@ featureByCh '^' att
   | otherwise                    = [Trap]
 featureByCh '\\' _ = [Throne]
 featureByCh '<' att
-  | foreground att == Default ||
-    foreground att == White      = [UpStairs Nothing]
+  | foreground att == White      = [UpStairs Nothing]
   | foreground att == Yellow     = [UpLadder Nothing]
   | otherwise                    = []
 featureByCh '>' att
-  | foreground att == Default ||
-    foreground att == White      = [DownStairs Nothing]
+  | foreground att == White      = [DownStairs Nothing]
   | foreground att == Yellow     = [DownLadder Nothing]
   | otherwise                    = []
 featureByCh ' ' att = []
 featureByCh '}' att
   | foreground att == Blue       = [Water]
   | foreground att == Red        = [Lava]
-  | foreground att == White ||
-    foreground att == Default    = [Sink]
+  | foreground att == White      = [Sink]
   | otherwise                    = []
 featureByCh '{' att
   | foreground att == Blue       = [Fountain]
   | otherwise                    = []
 featureByCh '_' att
-  | foreground att == Default ||
-    foreground att == White      = [Altar Nothing]
+  | foreground att == White      = [Altar Nothing]
   | otherwise                    = []
 featureByCh '"' att
   | foreground att == White      = [Trap]

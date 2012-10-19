@@ -9,6 +9,7 @@ module Terminal.Data
    defaultElement,
    foreground, background,
    bold, inverse,
+   setInverse,
    TerminalArray,
    STTerminalArray,
    string,
@@ -32,7 +33,7 @@ cursorY :: Terminal -> Int
 cursorY = cy
 
 defaultAttributes :: Attributes
-defaultAttributes = Attributes Default Default False False
+defaultAttributes = Attributes White Black False False
 
 defaultElement :: Element
 defaultElement = Element " " defaultAttributes Independent
@@ -51,4 +52,7 @@ width Terminal { elements = arr } = fst $ snd $ bounds arr
 
 height :: Terminal -> Int
 height Terminal { elements = arr } = snd $ snd $ bounds arr
+
+setInverse :: Attributes -> Bool -> Attributes
+setInverse attrs b = attrs { inverse = b }
 

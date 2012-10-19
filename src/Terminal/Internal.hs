@@ -44,6 +44,6 @@ data Element = Element { string :: String,
 -- around without coordinates becoming invalid.
 data Partiality = Independent | PartOf Int Int
 
-data Color = Black | Red | Green | Blue | Magenta | Yellow | Cyan | White |
-             Default
+data Color = Black | Red | Green | Blue | Magenta | Yellow | Cyan | White
              deriving(Eq, Show)
+
