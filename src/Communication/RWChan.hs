@@ -1,9 +1,9 @@
-module NetHack.ReadWriteChan(RWChan(),
-                             newRWChanIO,
-                             flipRWChan,
-                             writeRWChan,
-                             readRWChan,
-                             tryReadRWChan)
+module Communication.RWChan(RWChan(),
+                            newRWChanIO,
+                            flipRWChan,
+                            writeRWChan,
+                            readRWChan,
+                            tryReadRWChan)
   where
 
 import Control.Monad

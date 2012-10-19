@@ -1,27 +1,29 @@
-module NetHack.Root(runNetHackBot) where
+module NetHack.MessageBridge(runNetHackBot) where
+
+import Communication.RWChan
+import NetHack.Monad.NHAction
 
 import Prelude hiding (foldl, foldl1, mapM_)
 import Data.Foldable(foldl, foldl1, mapM_)
 
-import qualified Terminal as T
+import Control.Exception
 
-import qualified Data.ByteString.Char8 as B
+import System.Clock(Clock(Monotonic), TimeSpec(..), getTime)
+
+import Control.Monad hiding (mapM_)
+import Control.Monad.IO.Class
+
 import Control.Concurrent
 import Control.Concurrent.STM
 import Control.Concurrent.STM.TChan
-import System.Clock
-import qualified Data.Sequence as S
 
-import Control.Exception
-import Control.Monad hiding (mapM_)
-import Control.Monad.IO.Class
+import qualified Data.Sequence as S
+import qualified Data.ByteString.Char8 as B
 import qualified Data.Enumerator as E
 import qualified Data.Enumerator.List as EL
 
-import NetHack.Logic
-import NetHack.Monad.NHAction
-import NetHack.ReadWriteChan
-import NetHack.More
+import NetHack.Data.NetHackState(newGame)
+import NetHack.AI(root)
 
 data NetHackMsg = Closed |
                   Chunk B.ByteString

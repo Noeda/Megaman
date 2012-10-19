@@ -17,26 +17,9 @@ cabal-version:       >=1.8
 executable megaman
   hs-source-dirs:      src
   main-is:             Megaman.hs
-  other-modules:       NetHack.Vanilla.MonsterData,
-                       NetHack.Root,
-                       NetHack.Algorithms.Dice,
-                       Terminal,
-                       Misc,
-                       Regex,
 
-                       NetHack.ReadWriteChan,
-                       NetHack.Monad.NHAction,
-                       NetHack.Combo,
-                       NetHack.Alignment,
-                       NetHack.Screens,
-                       NetHack.Monster,
-                       NetHack.Item,
-                       NetHack.LevelLogic,
-                       NetHack.LevelPlumbing,
-                       NetHack.Logic,
-                       NetHack.More,
-                       NetHack.Messages,
-                       NetHack.LogicPlumbing
+  other-modules:       Terminal.Data,
+                       Terminal.Terminal
 
   build-depends:       base ==4.5.*,
                        bytestring == 0.10.*,
@@ -51,4 +34,7 @@ executable megaman
                        array == 0.4.*,
                        containers == 0.5.*,
                        clock == 0.3
+
+  extensions:          FlexibleInstances, GeneralizedNewtypeDeriving
+
 

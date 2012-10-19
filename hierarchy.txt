@@ -1,0 +1,24 @@
+
+src               The source code. The top level contains utility modules
+                  and main.
+
+src/Terminal      Modules that implement the terminal emulator.
+
+src/Communication Modules that implement communication utilities.
+
+src/NetHack       NetHack specific code. The top level contains plumbing
+                  modules that plumb together the main and the rest of the
+                  system.
+
+src/NetHack/Imported  Automatically generated Haskell code from NetHack.
+
+src/NetHack/Data      Data structures and functions to deal with them.
+                      Mostly 'pure' code (with some exceptions).
+
+src/NetHack/Monad     Monads. The only one right now is the
+                      NHAction monad.
+
+src/NetHack/Control   Code that implements actions done in the NetHack
+                      game. Many of them run in the NHAction monad. Lots of
+                      'impure' code.
+

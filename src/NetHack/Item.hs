@@ -1,3 +1,0 @@
-module NetHack.Item where
-
-

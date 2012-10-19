@@ -1,6 +1,15 @@
-module NetHack.Combo where
+module NetHack.Data.Combo
+  (Role(..),
+   Race(..),
+   Gender(..),
+   Combo(..),
+   roleLetter,
+   raceLetter,
+   genderLetter,
+   alignmentLetter)
+  where
 
-import NetHack.Alignment
+import NetHack.Data.Alignment
 
 data Role = Archeologist | Barbarian | Caveman | Healer |
             Knight | Monk | Priest | Rogue | Ranger |

@@ -1,6 +1,7 @@
-module NetHack.Messages(stripMessages, trim) where
+module NetHack.Data.Messages(stripMessages, trim) where
 
-import qualified Terminal as T
+import qualified Terminal.Data as T
+import qualified Terminal.Terminal as T
 
 -- Okay, I hope I got NetHack more behaviour correct. Things seem like
 -- this:

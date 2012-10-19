@@ -1,10 +1,28 @@
-module NetHack.Screens where
+module NetHack.Control.Screen
+  (cursorIsAt, ifIn, ifNotIn,
+   shallIPick,
+   pickARole,
+   pickTheRace,
+   pickTheGender,
+   pickTheAlignment,
+   itIsWrittenInTheBook,
+   welcomeBackToNetHack,
+   gameScreen,
+   restoringSave,
+   morePrompt)
+  where
 
-import Control.Monad
 import NetHack.Monad.NHAction
-import NetHack.LogicPlumbing
-import System.IO.Unsafe
-import qualified Terminal as T
+import NetHack.Data.NetHackState(messages)
+import qualified Terminal.Data as T
+import qualified Terminal.Terminal as T
+import Control.Monad
+
+cursorIsAt :: Int -> Int -> NHAction Bool
+cursorIsAt x y = do
+  t <- getTerminalM
+  return $ x == T.cursorX t &&
+           y == T.cursorY t
 
 ifIn :: NHAction Bool -> NHAction a -> NHAction (Either a ())
 ifIn testaction dothis = do
@@ -20,7 +38,7 @@ ifNotIn testaction dothis = do
 
 isSomewhereOnScreen :: String -> NHAction Bool
 isSomewhereOnScreen str = do
-  terminal <- getTerminal
+  terminal <- getTerminalM
   return $ T.isSomewhereOnScreen str terminal
 
 shallIPick       = isSomewhereOnScreen "Shall I pick a character's"
@@ -33,7 +51,7 @@ itIsWrittenInTheBook = isSomewhereOnScreen "It is written in the Book of"
 morePrompt = isSomewhereOnScreen "--More--"
 restoringSave = isMessageOnScreen "Restoring save file..."
 
-gameScreen = do t <- getTerminal
+gameScreen = do t <- getTerminalM
                 let b1 = T.cursorIsInside (1, 2) (80, 22) t
                 b2 <- morePrompt
                 return $ b1 && not b2
@@ -44,5 +62,3 @@ isMessageOnScreen str = do ns <- get; return (str `elem` messages ns)
 welcomeBackToNetHack = liftM2 (||)
                          (isSomewhereOnScreen ", welcome to NetHack!")
                          (isSomewhereOnScreen ", welcome back to NetHack!")
-
-

@@ -1,7 +1,7 @@
-module NetHack.Vanilla.MonsterData where
+module NetHack.Imported.MonsterData where
 
 import qualified Data.ByteString.Char8 as B
-import qualified NetHack.Algorithms.Dice as D
+import qualified NetHack.Data.Dice as D
 
 data AttackType = AtNone | AtClaw | AtBite | AtKick | AtButt |
                   AtTouch | AtSting | AtHug | AtSpit |

@@ -1,17 +1,15 @@
-module NetHack.Logic(root) where
+module NetHack.AI(root) where
 
 import Control.Monad
 import NetHack.Monad.NHAction
-import NetHack.LevelLogic
-import NetHack.LevelPlumbing
-import NetHack.LogicPlumbing
-import NetHack.Combo
-import NetHack.Alignment
-import NetHack.Screens
-import NetHack.More
+import NetHack.Data.Combo
+import NetHack.Data.Alignment
+import NetHack.Control.Screen
+import NetHack.Control.More
+import NetHack.Control.Level
 
 root :: NHAction ()
-root = waitForData >>
+root = update >>
        restoreSave >>
        startCharacter (Combo Healer Gnome Female Neutral) >>
        exploreLevel

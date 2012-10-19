@@ -1,64 +1,20 @@
-module Terminal(Terminal(elements), emptyTerminal, isSomewhereOnScreen,
-                isSomewhereOnScreenPos, strAt, elemAt, attrsAt, width, height,
-                Attributes(foreground, background, bold, inverse),
-                newAttributes,
-                defaultAttrs,
-                cursorIsInside, captureString, captureInteger,
-                Elem(string, attrs),
-                Color(..), cursorX, cursorY,
-                handleChar, printOut) where
+module Terminal.Terminal(emptyTerminal, isSomewhereOnScreenPos, handleChar,
+                         isSomewhereOnScreen, cursorIsInside, captureString,
+                         captureInteger, printOut) where
+
+import Terminal.Data
+import Terminal.Internal
 
 import Data.Char
 import Data.Array
 import Control.Monad
-import Control.Monad.ST
-import Data.Array.ST
+import Control.Monad.ST(ST, runST)
+import Data.Array.ST(STArray)
 import Data.Array.MArray
 import Data.Maybe
 import Data.List(isPrefixOf)
 
 import qualified Regex as R
-
-type TerminalArray = Array (Int, Int) Elem
-type STTerminalArray s = ST s (STArray s (Int, Int) Elem)
-
-data Terminal = Terminal { elements :: TerminalArray,
-                           cx :: Int,
-                           cy :: Int,
-                           attributes :: Attributes,
-                           consumer :: Terminal -> Char -> Terminal }
-
-cursorX :: Terminal -> Int
-cursorX = cx
-
-cursorY :: Terminal -> Int
-cursorY = cy
-
-data Attributes = Attributes { foreground :: Color,
-                               background :: Color,
-                               bold :: Bool,
-                               inverse :: Bool }
-                  deriving(Eq, Show)
-
-newAttributes :: Color -> Color -> Bool -> Bool -> Attributes
-newAttributes = Attributes
-
--- Some elements may be written over by some other elements
--- For example, full width CJK characters can take two elements in the
--- terminal. One element encodes the character and the other elements have
--- PartOf partiality element in them, indicating they are part of that
--- other element.
--- PartOf coordinates are relative. This allows the elements to be moved
--- around without coordinates becoming invalid.
-data Partiality = Independent | PartOf Int Int
-
-data Elem = Elem { string :: String,
-                   attrs :: Attributes,
-                   partOf :: Partiality }
-
-data Color = Black | Red | Green | Blue | Magenta | Yellow | Cyan | White |
-             Default
-             deriving(Eq, Show)
 
 -- these map integers to corresponding colors that are used in ANSI escape
 -- sequences to yield that color. Different values for foregrounds and
@@ -89,31 +45,10 @@ bgToColor 48 = Just Default
 bgToColor 49 = Just Default
 bgToColor _ = Nothing
 
-defaultAttrs :: Attributes
-defaultAttrs = Attributes Default Default False False
-
-defaultElem :: Elem
-defaultElem = Elem " " defaultAttrs Independent
-
-emptyTerminal :: Int -> Int -> Terminal
-emptyTerminal width height = Terminal (array ((1,1), (width, height))
-                                      [((x,y), defaultElem) |
-                                           x <- [1..width],
-                                           y <- [1..height]])
-                                      1 1
-                                      defaultAttrs
-                                      baseConsumer
-
 handleChar :: Terminal -> Char -> Terminal
 handleChar t@(Terminal { consumer = c }) = c t
 
-width :: Terminal -> Int
-width Terminal { elements = arr } = fst $ snd $ bounds arr
-
-height :: Terminal -> Int
-height Terminal { elements = arr } = snd $ snd $ bounds arr
-
-unsafeSet :: TerminalArray -> Int -> Int -> Elem -> TerminalArray
+unsafeSet :: TerminalArray -> Int -> Int -> Element -> TerminalArray
 -- Doesn't actually use unsafe operations. Also, very inefficient as it is.
 -- We can't use unsafeThaw/freeze unless we are also certain the terminal
 -- will not every be referenced anywhere else. Right now, we don't have
@@ -164,7 +99,7 @@ baseConsumer t@(Terminal elems x y _ _) ch
 
   | otherwise = t { elements = unsafeSet elems x y newElem }
   where
-    newElem = Elem [ch] (attributes t) Independent
+    newElem = Element [ch] (currentAttributes t) Independent
 
 type Consumer = Terminal -> Char -> Terminal
 
@@ -237,7 +172,7 @@ eraseFromList t indices =
                  freeze marr
     elems = elements t
     (w, h) = (width t, height )
-    curElem = currentElem t
+    curElem = currentElement t
 
 eraseLeft :: Terminal -> Terminal
 eraseLeft t = eraseFromList t [(x, cy1) | x <- [1..cx1]]
@@ -266,7 +201,7 @@ eraseBelow t@(Terminal { elements = elems, cx = x, cy = y }) =
                    writeArray marr (ex, ey) curElem) [y+1..h]) [1..w]
                  freeze marr
     (w, h) = (width t, height t)
-    curElem = currentElem t
+    curElem = currentElement t
 
 eraseAbove :: Terminal -> Terminal
 eraseAbove t@(Terminal { elements = elems, cx = x, cy = y }) =
@@ -280,22 +215,22 @@ eraseAbove t@(Terminal { elements = elems, cx = x, cy = y }) =
                  freeze marr
     w = width t
     h = height t
-    curElem = currentElem t
+    curElem = currentElement t
 
 eraseAll :: Terminal -> Terminal
 eraseAll = eraseAbove . eraseBelow
 
 applyAttrib :: Terminal -> Int -> Terminal
-applyAttrib t@(Terminal { attributes = attrs }) n
+applyAttrib t@(Terminal { currentAttributes = attrs }) n
   | isJust $ fgToColor n =
-      t { attributes = attrs { foreground = fromJust $ fgToColor n } }
+      t { currentAttributes = attrs { foreground = fromJust $ fgToColor n } }
   | isJust $ bgToColor n =
-      t { attributes = attrs { foreground = fromJust $ bgToColor n } }
-  | n == 0 = t { attributes = defaultAttrs }
+      t { currentAttributes = attrs { foreground = fromJust $ bgToColor n } }
+  | n == 0 = t { currentAttributes = defaultAttributes }
   | otherwise = t
 
-currentElem :: Terminal -> Elem
-currentElem t = Elem " " (attributes t) Independent
+currentElement :: Terminal -> Element
+currentElement t = Element " " (currentAttributes t) Independent
 
 scrollUp :: Terminal -> Terminal
 scrollUp t@(Terminal elems x y attrs _)
@@ -314,7 +249,7 @@ scrollUp t@(Terminal elems x y attrs _)
                           [h, h-1..2]
 
                       mapM_
-                        (\x -> writeArray marr (x, h) (currentElem t))
+                        (\x -> writeArray marr (x, h) (currentElement t))
                         [1..w]
 
                       freeze marr
@@ -328,7 +263,7 @@ clearLine t y = t { elements = clearElemLine elems y }
                   clearElemLine elems line =
                     runST $ do marr <- thaw elems :: STTerminalArray s
                                mapM_ (\x -> writeArray marr (x, y)
-                                              (currentElem t)) [1..w]
+                                              (currentElement t)) [1..w]
                                freeze marr
 
 yLineToStr :: Int -> Terminal -> String
@@ -397,12 +332,12 @@ printOut t@(Terminal { elements = elems }) = do
       w = width t
       h = height t
 
-strAt :: (Int, Int) -> Terminal -> String
-strAt (x, y) t = string $ elemAt (x, y) t
-
-attrsAt :: (Int, Int) -> Terminal -> Attributes
-attrsAt (x, y) t = attrs $ elemAt (x, y) t
-
-elemAt :: (Int, Int) -> Terminal -> Elem
-elemAt (x, y) (Terminal { elements = elems }) = elems ! (x,y)
+emptyTerminal :: Int -> Int -> Terminal
+emptyTerminal width height = Terminal (array ((1,1), (width, height))
+                                      [((x,y), defaultElement) |
+                                           x <- [1..width],
+                                           y <- [1..height]])
+                                      1 1
+                                      defaultAttributes
+                                      baseConsumer
 
