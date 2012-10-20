@@ -129,11 +129,12 @@ while test action = do
 
 lookDownUpdate :: NHAction ()
 lookDownUpdate = do
+  t <- getTerminalM
+  let coords = T.coords t
   answer ':'
   t <- getTerminalM
   l <- getLevelM
-  let coords = T.coords t
-      elems = elements l
+  let elems = elements l
       oldElem = M.findWithDefault (initialElement weirdAppearance)
                    coords elems
       firstLine = T.lineAt 1 t
