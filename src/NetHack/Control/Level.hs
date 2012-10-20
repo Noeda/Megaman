@@ -152,7 +152,7 @@ lookDownUpdate = do
     [] -> return ()
     [item] -> putElementM (setItems oldElem $
                            M.singleton Nothing $
-                           canonicalizeItemName item) coords
+                           [canonicalizeItemName item]) coords
 
   let shouldExamineItems = T.isSomewhereOnScreen "Things that are here: " t
   while morePrompt $ answer ' '

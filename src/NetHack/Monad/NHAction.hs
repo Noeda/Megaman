@@ -53,7 +53,7 @@ putElementM elem coords = do level <- getLevelM
                              putLevelM $ setElements level $
                                M.insert coords elem elems
 
-putInventoryM :: M.Map Char Item -> NHAction ()
+putInventoryM :: M.Map Char [Item] -> NHAction ()
 putInventoryM i = do ns <- get; put $ NS.setInventory ns i
 
 putInventoryNeedsUpdateM :: Bool -> NHAction ()

@@ -18,7 +18,7 @@ import qualified Data.Map as M
 data NetHackState = NetHackState { currentLevel :: Level,
                                    terminal :: Terminal,
                                    messages :: [String],
-                                   inventory :: M.Map Char Item,
+                                   inventory :: M.Map Char [Item],
                                    inventoryNeedsUpdate :: Bool,
                                    runningId :: Int,
                                    channels :: RWChan B.ByteString }
@@ -28,7 +28,7 @@ newGame = NetHackState level (emptyTerminal 80 24) [] M.empty True 1
           where
             (level, _) = newLevel 0
 
-setInventory :: NetHackState -> M.Map Char Item -> NetHackState
+setInventory :: NetHackState -> M.Map Char [Item] -> NetHackState
 setInventory ns map = ns { inventory = map }
 
 setInventoryNeedsUpdate :: NetHackState -> Bool -> NetHackState

@@ -32,7 +32,7 @@ updateInventoryIfNecessary = do
       then putInventoryM M.empty
       else updateInventoryFromScreen
 
-itemsOnScreen :: (Item -> Bool) -> NHAction (M.Map Char Item)
+itemsOnScreen :: (Item -> Bool) -> NHAction (M.Map Char [Item])
 itemsOnScreen select = do
   t <- getTerminalM
   readOutItems select $ detectItemListingPosition t
@@ -45,7 +45,8 @@ updateInventoryFromScreen = do
   where
     never _ = False
 
-readOutItems :: (Item -> Bool) -> (Int, Int, Int) -> NHAction (M.Map Char Item)
+readOutItems :: (Item -> Bool) -> (Int, Int, Int) -> NHAction (M.Map Char
+                                                                     [Item])
 readOutItems select (xStart, yStart, yEnd) = do
     t <- getTerminalM
     readOutItem t yStart M.empty
@@ -76,9 +77,10 @@ readOutItems select (xStart, yStart, yEnd) = do
       regex = "^[a-zA-Z] \\- (.+)$"
       line = drop (xStart - 1) $ T.lineAt y t
 
-canonicalizeItemToInventory :: M.Map Char Item -> Char -> Item ->
-                               M.Map Char Item
-canonicalizeItemToInventory map ch item = M.insert ch item map
+canonicalizeItemToInventory :: M.Map Char [Item] -> Char -> Item ->
+                               M.Map Char [Item]
+canonicalizeItemToInventory map ch item =
+  M.insertWith (\new old -> new ++ old) ch [item] map
 
 detectItemListingPosition :: T.Terminal -> (Int, Int, Int)
 detectItemListingPosition t =

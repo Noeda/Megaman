@@ -52,7 +52,7 @@ data Element = Element { searched   :: Int,
                          boulder    :: Bool,
                          lookedLike :: Appearance,
                          unexploredItems :: Bool,
-                         items      :: M.Map (Maybe Char) Item,
+                         items      :: M.Map (Maybe Char) [Item],
                          monster    :: Maybe MonsterInstance,
                          feature    :: Maybe Feature }
                        deriving(Show)
@@ -124,7 +124,7 @@ setBoulder e b = e { boulder = b }
 setFeature :: Element -> Maybe Feature -> Element
 setFeature e f = e { feature = f }
 
-setItems :: Element -> M.Map (Maybe Char) Item -> Element
+setItems :: Element -> M.Map (Maybe Char) [Item] -> Element
 setItems e items = e { items = items }
 
 removeMonster :: Element -> Element
