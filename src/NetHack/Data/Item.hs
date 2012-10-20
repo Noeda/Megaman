@@ -125,15 +125,19 @@ convertCharging (s1, s2) = (convertInteger s1, convertInteger s2)
 removePlural :: String -> String
 removePlural str = removeGeneric . removePotions . removeScrolls .
                    removeMothersInLaw . removeFathersInLaw .
+                   removePieces .
                    removeKnives $ str
   where
     removeKnives = replaceInfix "knives" "knife"
     removeScrolls = replaceInfix "scrolls" "scroll"
     removePotions = replaceInfix "potions" "potion"
+    removePieces = replaceInfix "pieces" "piece"
     removeMothersInLaw = replaceInfix "mothers-in-law" "mother-in-law"
     removeFathersInLaw = replaceInfix "fathers-in-law" "father-in-law"
-    removeGeneric str = if last str == 's' then take (length str - 1) str
-                                           else str
+    removeGeneric str = if last str == 's' &&
+                           last (take (length str - 1) str) /= 's'
+                         then take (length str - 1) str
+                         else str
 
 replaceInfix :: String -> String -> String -> String
 replaceInfix = replaceInfix2 []
