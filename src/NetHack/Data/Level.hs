@@ -21,6 +21,8 @@ module NetHack.Data.Level
    removeMonster,
    setMonsterInstance,
    setUnexploredItems,
+   reachablePositions,
+   explorableReachablePositions,
    isDungeonFeature,
    levelCoordinates,
    levelCoordinatesExcept)
@@ -33,7 +35,10 @@ import Data.Array(Array, array)
 import Data.List((\\))
 
 import qualified Data.Map as M
+import qualified Data.Set as S
 import qualified Terminal.Data as T
+
+import Control.Monad
 
 import NetHack.Data.Alignment
 import NetHack.Data.Item
@@ -248,6 +253,24 @@ featureByCh '"' att
   | otherwise                    = []
 featureByCh _ _ = []
 
+passableFeature :: Feature -> Bool
+passableFeature Throne = True
+passableFeature Floor = True
+passableFeature (DownStairs _) = True
+passableFeature (UpStairs _) = True
+passableFeature (UpLadder _) = True
+passableFeature (DownLadder _) = True
+passableFeature Grave = True
+passableFeature (Altar _) = True
+passableFeature Trap = True
+passableFeature OpenedDoor = True
+passableFeature DrawbridgeOpened = True
+passableFeature Cloud = True
+passableFeature Air = True
+passableFeature Fountain = True
+passableFeature Sink = True
+passableFeature _ = False
+
 isDungeonFeature :: String -> Bool
 isDungeonFeature "0" = False
 isDungeonFeature _   = True
@@ -257,4 +280,66 @@ levelCoordinates = [(x, y) | x <- [1..80], y <- [2..22]]
 
 levelCoordinatesExcept :: (Int, Int) -> [(Int, Int)]
 levelCoordinatesExcept coords = levelCoordinates \\ [coords]
+
+explorablePositions :: Level -> [(Int, Int)]
+explorablePositions level =
+  foldl accumFun [] coords
+  where
+    accumFun accum coord =
+      if any (\neighbourcoord ->
+               fmap feature (elemAt level neighbourcoord) == Nothing)
+             (neighbourCoordinates coord)
+        then coord:accum
+        else accum
+    coords = [(x, y) | x <- [2..79], y <- [3..21]]
+
+explorableReachablePositions :: Level -> (Int, Int) -> [(Int, Int)]
+explorableReachablePositions l c@(x, y) =
+  reachablePositions l c \\ explorablePositions l
+
+reachablePositions :: Level -> (Int, Int) -> [(Int, Int)]
+reachablePositions level (x, y) =
+  accum S.empty (S.singleton (x, y))
+  where
+    accum reached check =
+      if S.size check > 0
+        then let minitem = S.findMin check
+              in accum (S.insert minitem reached)
+                       (S.delete minitem
+                         (foldl (\set neighbour ->
+                                   if not (S.member neighbour reached) &&
+                                      canPassFrom level (x, y) minitem neighbour
+                                     then S.insert neighbour set
+                                     else set)
+                                check (neighbourCoordinates minitem)))
+        else S.elems reached
+
+canPassFrom :: Level ->
+               (Int, Int) -> (Int, Int) -> (Int, Int) -> Bool
+canPassFrom level (px1, py1) (x1, y1) (x2, y2)
+  | (passableFeature `fmap` join (feature `fmap` elem1) /= Just True ||
+     passableFeature `fmap` join (feature `fmap` elem2) /= Just True) &&
+    (not ((x1 == px1 && y1 == py1) || (x2 == px1 && y2 == py1))) &&
+    (not ((fmap couldHaveItems (fmap lookedLike elem2)) == Just True)) = False
+
+  | (join (fmap feature elem1) == Just OpenedDoor ||
+     join (fmap feature elem2) == Just OpenedDoor) =
+    if (x1 == x2 || y1 == y2) then True else False
+
+  | otherwise = True
+
+  where
+    elem1 = elemAt level (x1, y1) :: Maybe Element
+    elem2 = elemAt level (x2, y2) :: Maybe Element
+
+neighbourCoordinates :: (Int, Int) -> [(Int, Int)]
+neighbourCoordinates (x, y) =
+  [(x-1, y),
+   (x+1, y),
+   (x-1, y-1),
+   (x+1, y-1),
+   (x-1, y+1),
+   (x+1, y+1),
+   (x, y-1),
+   (x, y+1)]
 

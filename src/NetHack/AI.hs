@@ -8,6 +8,7 @@ import NetHack.Control.ItemListing
 import NetHack.Control.Screen
 import NetHack.Control.More
 import NetHack.Control.Level
+import NetHack.Data.Level
 
 root :: NHAction ()
 root = update >>
@@ -41,13 +42,17 @@ startCharacter combo = do
     gender1 = genderLetter $ gender combo
     alignment1 = alignmentLetter $ alignment combo
 
+handleTurn :: NHAction ()
+handleTurn = do
+  skipMores
+  updateCurrentLevel
+  updateInventoryIfNecessary
+
 -- Explores the dungeon level as specified by an integer.
 -- If the player is not the level, then the bot will attempt to get there
 -- in some way. May bail out if it runs out of ideas to get on the level.
 exploreLevel :: NHAction ()
 exploreLevel = do
-  skipMores
-  updateCurrentLevel
-  updateInventoryIfNecessary
+  handleTurn
 
 
