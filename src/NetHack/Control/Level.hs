@@ -95,10 +95,8 @@ updateCurrentLevel = do
             (T.strAt coords terminal, T.attributesAt coords terminal)
           oldAppearance = lookedLike elem
           str = fst appearance
-          elem = M.findWithDefault (initialElement weirdAppearance)
-                   coords elements
+          elem = elemAtDefault level coords
           updateElem e = M.insert coords (setAppearance e appearance) elements
-
        in if appearance /= oldAppearance
      then let candidates = concat [monsterCandidates appearance,
                                    featureCandidates appearance,
@@ -142,12 +140,15 @@ lookDownUpdate = do
                              firstLine :: [String]
 
   case length featureNames of
-    1 -> do putLevelM $ setElements l $
-              M.insert coords (setFeature oldElem (featureByStr $ featureNames !! 2))
-                                elems
-    0 -> do putLevelM $ setElements l $
-              M.insert coords (setFeature oldElem (Just Floor)) elems
+    1 -> do putElementM (setFeature oldElem (featureByStr $ featureNames !! 2))
+                        coords
+    0 -> do putElementM (setFeature oldElem (Just Floor)) coords
     _ -> return ()
+
+  -- Single item
+  case R.match "You see here (.+)\\." firstLine of
+    [] -> return ()
+    [item] -> putElementM (setItems oldElem [canonicalizeItemName item]) coords
 
   let shouldExamineItems = T.isSomewhereOnScreen "Things that are here: " t
   while morePrompt $ answer ' '

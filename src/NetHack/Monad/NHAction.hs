@@ -1,10 +1,10 @@
 module NetHack.Monad.NHAction
   (runNHAction, answer, NHAction(), update, getTerminalM, get, putLevelM,
-   putInventoryM, putInventoryNeedsUpdateM,
+   putInventoryM, putInventoryNeedsUpdateM, getElementM, putElementM,
    getLevelM, bailout)
   where
 
-import NetHack.Data.Level(Level)
+import NetHack.Data.Level
 import qualified NetHack.Data.NetHackState as NS
 import NetHack.Data.Messages
 import NetHack.Data.Item(Item)
@@ -42,6 +42,16 @@ getLevelM = do ns <- get; return $ NS.currentLevel ns
 
 putLevelM :: Level -> NHAction ()
 putLevelM l = do ns <- get; put $ NS.setLevel ns l
+
+getElementM :: (Int, Int) -> NHAction Element
+getElementM coords = do level <- getLevelM
+                        return $ elemAtDefault level coords
+
+putElementM :: Element -> (Int, Int) -> NHAction ()
+putElementM elem coords = do level <- getLevelM
+                             let elems = elements level
+                             putLevelM $ setElements level $
+                               M.insert coords elem elems
 
 putInventoryM :: M.Map Char Item -> NHAction ()
 putInventoryM i = do ns <- get; put $ NS.setInventory ns i
