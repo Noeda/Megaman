@@ -5,9 +5,7 @@ module Terminal.Internal
    Element(..),
    Partiality(..),
    TerminalArray(..),
-   STTerminalArray(..),
-   currentAttributes,
-   attributes)
+   STTerminalArray(..))
   where
 
 import Control.Monad.ST(ST)
