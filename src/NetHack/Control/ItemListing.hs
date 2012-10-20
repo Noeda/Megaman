@@ -1,5 +1,6 @@
 module NetHack.Control.ItemListing
-  (updateInventoryIfNecessary)
+  (updateInventoryIfNecessary,
+   itemsOnScreen)
   where
 
 import Control.Monad
@@ -31,14 +32,21 @@ updateInventoryIfNecessary = do
       then putInventoryM M.empty
       else updateInventoryFromScreen
 
+itemsOnScreen :: (Item -> Bool) -> NHAction (M.Map Char Item)
+itemsOnScreen select = do
+  t <- getTerminalM
+  readOutItems select $ detectItemListingPosition t
+
 updateInventoryFromScreen :: NHAction ()
 updateInventoryFromScreen = do
   t <- getTerminalM
-  items <- readOutItems $ detectItemListingPosition t
+  items <- readOutItems never $ detectItemListingPosition t
   putInventoryM items
+  where
+    never _ = False
 
-readOutItems :: (Int, Int, Int) -> NHAction (M.Map Char Item)
-readOutItems (xStart, yStart, yEnd) = do
+readOutItems :: (Item -> Bool) -> (Int, Int, Int) -> NHAction (M.Map Char Item)
+readOutItems select (xStart, yStart, yEnd) = do
     t <- getTerminalM
     readOutItem t yStart M.empty
   where
@@ -59,18 +67,18 @@ readOutItems (xStart, yStart, yEnd) = do
     | fromJust $ R.match regex line =
         let letter = head line
             itemname = fromJust $ (R.match regex line :: Maybe String)
-         in do let items = canonicalizeItemToInventory accum letter itemname
+         in do let item = canonicalizeItemName itemname
+               let items = canonicalizeItemToInventory accum letter item
+               when (select item) $ answer letter
                readOutItem t (y+1) items
     | otherwise = readOutItem t (y+1) accum
     where
       regex = "^[a-zA-Z] \\- (.+)$"
       line = drop (xStart - 1) $ T.lineAt y t
 
-canonicalizeItemToInventory :: M.Map Char Item -> Char -> String ->
+canonicalizeItemToInventory :: M.Map Char Item -> Char -> Item ->
                                M.Map Char Item
-canonicalizeItemToInventory map ch str =
-  let item = canonicalizeItemName str
-   in M.insert ch item map
+canonicalizeItemToInventory map ch item = M.insert ch item map
 
 detectItemListingPosition :: T.Terminal -> (Int, Int, Int)
 detectItemListingPosition t =

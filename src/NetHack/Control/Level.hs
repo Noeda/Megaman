@@ -11,6 +11,7 @@ import qualified NetHack.Imported.MonsterData as MD
 import NetHack.Monad.NHAction
 import NetHack.Control.Farlook
 import NetHack.Control.Screen
+import NetHack.Control.ItemListing
 
 import Control.Monad.State
 import Control.Monad.ST
@@ -69,7 +70,8 @@ updateWithCandidate :: Element -> ElementCandidate -> Element
 updateWithCandidate element (Boulder) =
   removeMonster $ setBoulder element True
 updateWithCandidate element (DungeonFeature f) =
-  setItems (removeBoulder . removeMonster $ setFeature element (Just f)) []
+  setItems (removeBoulder . removeMonster $ setFeature element (Just f))
+    M.empty
 updateWithCandidate element (Monster m) =
   removeBoulder $ setMonsterInstance element
      (Just $ MI.newMonsterInstance m MI.defaultMonsterAttributes)
@@ -146,14 +148,21 @@ lookDownUpdate = do
     _ -> return ()
 
   -- Single item
-  case R.match "You see here (.+)\\." firstLine of
+  case R.match "You see here (.+)\\." firstLine :: [String] of
     [] -> return ()
-    [item] -> putElementM (setItems oldElem [canonicalizeItemName item]) coords
+    [item] -> putElementM (setItems oldElem $
+                           M.singleton Nothing $
+                           canonicalizeItemName item) coords
 
   let shouldExamineItems = T.isSomewhereOnScreen "Things that are here: " t
   while morePrompt $ answer ' '
-  when shouldExamineItems examineItemsOnFloor
+  when shouldExamineItems $ examineItemsOnFloor coords
 
-examineItemsOnFloor :: NHAction ()
-examineItemsOnFloor = return ()
+-- assumes there is more than one item on the floor.
+examineItemsOnFloor :: (Int, Int) -> NHAction ()
+examineItemsOnFloor coords = do
+  answer ','
+  oldElem <- getElementM coords
+  items <- itemsOnScreen (\_ -> False)
+  (flip putElementM $ coords) $ setItems oldElem (M.mapKeys Just items)
 
