@@ -69,7 +69,7 @@ updateWithCandidate :: Element -> ElementCandidate -> Element
 updateWithCandidate element (Boulder) =
   removeMonster $ setBoulder element True
 updateWithCandidate element (DungeonFeature f) =
-  removeBoulder . removeMonster $ setFeature element (Just f)
+  setItems (removeBoulder . removeMonster $ setFeature element (Just f)) []
 updateWithCandidate element (Monster m) =
   removeBoulder $ setMonsterInstance element
      (Just $ MI.newMonsterInstance m MI.defaultMonsterAttributes)
