@@ -68,7 +68,9 @@ readOutItems (xStart, yStart, yEnd) = do
 
 canonicalizeItemToInventory :: M.Map Char Item -> Char -> String ->
                                M.Map Char Item
-canonicalizeItemToInventory map ch str = M.insert ch (unknownItem str) map
+canonicalizeItemToInventory map ch str =
+  let item = canonicalizeItemName str
+   in M.insert ch item map
 
 detectItemListingPosition :: T.Terminal -> (Int, Int, Int)
 detectItemListingPosition t =
