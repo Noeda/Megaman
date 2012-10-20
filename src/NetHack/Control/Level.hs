@@ -10,12 +10,14 @@ import qualified NetHack.Data.MonsterInstance as MI
 import qualified NetHack.Imported.MonsterData as MD
 import NetHack.Monad.NHAction
 import NetHack.Control.Farlook
+import NetHack.Control.Screen
 
 import Control.Monad.State
 import Control.Monad.ST
 import Data.Array.ST
 import Data.Array((!), Array, (//))
 
+import qualified Regex as R
 import qualified Data.Map as M
 
 import qualified Data.ByteString.Char8 as B
@@ -64,10 +66,15 @@ farLookFilter str m@(Monster mdata) =
                    else []
 
 updateWithCandidate :: Element -> ElementCandidate -> Element
-updateWithCandidate element (Boulder) = setBoulder element True
-updateWithCandidate element (DungeonFeature f) = setFeature element (Just f)
+updateWithCandidate element (Boulder) =
+  removeMonster $ setBoulder element True
+updateWithCandidate element (DungeonFeature f) =
+  removeBoulder . removeMonster $ setFeature element (Just f)
+updateWithCandidate element (Monster m) =
+  removeBoulder $ setMonsterInstance element
+     (Just $ MI.newMonsterInstance m MI.defaultMonsterAttributes)
 updateWithCandidate element (MonsterInstance mi) =
-  setMonsterInstance element (Just mi)
+  removeBoulder $ setMonsterInstance element (Just mi)
 
 noInversion :: T.Attributes -> T.Attributes
 noInversion attrs = T.setInverse attrs False
@@ -79,6 +86,9 @@ updateCurrentLevel = do
   newElements <- foldM (updateLevelElement l t) (elements l) $
                    levelCoordinatesExcept (T.coords t)
   putLevelM $ setElements l newElements
+  l <- getLevelM
+  when (((fmap feature) . (elemAt l)) (T.coords t) == Nothing) $ do
+    lookDownUpdate
   where
     updateLevelElement level terminal elements coords =
       let appearance =
@@ -110,4 +120,38 @@ updateCurrentLevel = do
                                      str ++ ") and the candidates are: " ++
                                      show newCandidates
      else return elements
+
+while :: Functor m => Monad m => m Bool -> m a -> m ()
+while test action = do
+  result <- test
+  when result $ do void action
+                   while test action
+
+lookDownUpdate :: NHAction ()
+lookDownUpdate = do
+  answer ':'
+  t <- getTerminalM
+  l <- getLevelM
+  let coords = T.coords t
+      elems = elements l
+      oldElem = M.findWithDefault (initialElement weirdAppearance)
+                   coords elems
+      firstLine = T.lineAt 1 t
+      featureNames = R.match "There is (a |an )? (.+) here\\."
+                             firstLine :: [String]
+
+  case length featureNames of
+    1 -> do putLevelM $ setElements l $
+              M.insert coords (setFeature oldElem (featureByStr $ featureNames !! 2))
+                                elems
+    0 -> do putLevelM $ setElements l $
+              M.insert coords (setFeature oldElem (Just Floor)) elems
+    _ -> return ()
+
+  let shouldExamineItems = T.isSomewhereOnScreen "Things that are here: " t
+  while morePrompt $ answer ' '
+  when shouldExamineItems examineItemsOnFloor
+
+examineItemsOnFloor :: NHAction ()
+examineItemsOnFloor = return ()
 

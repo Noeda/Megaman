@@ -7,13 +7,16 @@ module NetHack.Data.Level
    setElements,
    lookedLike,
    Element(),
-   Feature(),
+   Feature(..),
    weirdAppearance,
    featureByStr,
    featureByCh,
+   elemAt,
    setAppearance,
    setBoulder,
    setFeature,
+   removeBoulder,
+   removeMonster,
    setMonsterInstance,
    setUnexploredItems,
    isDungeonFeature,
@@ -82,6 +85,9 @@ data Feature = DownStairs (Maybe LevelID) |
                Unknown
                deriving(Eq, Show)
 
+elemAt :: Level -> (Int, Int) -> Maybe Element
+elemAt (Level { elements = elems }) coords = M.lookup coords elems
+
 weirdAppearance :: Appearance
 weirdAppearance = ("pahvilaatikko", T.defaultAttributes)
 
@@ -111,6 +117,12 @@ setBoulder e b = e { boulder = b }
 
 setFeature :: Element -> Maybe Feature -> Element
 setFeature e f = e { feature = f }
+
+removeMonster :: Element -> Element
+removeMonster e = e { monster = Nothing }
+
+removeBoulder :: Element -> Element
+removeBoulder e = e { boulder = False }
 
 setMonsterInstance :: Element -> Maybe MonsterInstance -> Element
 setMonsterInstance e m = e { monster = m }

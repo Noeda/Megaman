@@ -4,6 +4,7 @@ module NetHack.Data.MonsterInstance
    monsterByName,
    newMonsterInstance,
    freshMonsterInstance,
+   defaultMonsterAttributes,
    monsterByAppearance)
   where
 
