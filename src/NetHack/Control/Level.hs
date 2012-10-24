@@ -66,17 +66,28 @@ farLookFilter str m@(Monster mdata) =
                    then [MonsterInstance $ MI.newMonsterInstance m mattributes]
                    else []
 
+maybeSetFloor :: Element -> Element
+maybeSetFloor el =
+  if feature el == Nothing
+    then setFeature el (Just Floor)
+    else el
+
 updateWithCandidate :: Element -> ElementCandidate -> Element
-updateWithCandidate element (Boulder) =
-  removeMonster $ setBoulder element True
-updateWithCandidate element (DungeonFeature f) =
-  setItems (removeBoulder . removeMonster $ setFeature element (Just f))
-    M.empty
-updateWithCandidate element (Monster m) =
-  removeBoulder $ setMonsterInstance element
-     (Just $ MI.newMonsterInstance m MI.defaultMonsterAttributes)
-updateWithCandidate element (MonsterInstance mi) =
-  removeBoulder $ setMonsterInstance element (Just mi)
+updateWithCandidate element candidate =
+  let newElem = updateWithCandidate2 element candidate
+   -- Assume the dungeon feature is a floor if we have no better knowledge.
+   in maybeSetFloor newElem
+  where
+  updateWithCandidate2 element (Boulder) =
+    removeMonster $ setBoulder element True
+  updateWithCandidate2 element (DungeonFeature f) =
+    setItems (removeBoulder . removeMonster $ setFeature element (Just f))
+      M.empty
+  updateWithCandidate2 element (Monster m) =
+    removeBoulder $ setMonsterInstance element
+       (Just $ MI.newMonsterInstance m MI.defaultMonsterAttributes)
+  updateWithCandidate2 element (MonsterInstance mi) =
+    removeBoulder $ setMonsterInstance element (Just mi)
 
 noInversion :: T.Attributes -> T.Attributes
 noInversion attrs = T.setInverse attrs False
@@ -114,7 +125,8 @@ updateCurrentLevel = do
                      (updateWithCandidate elem $ head newCandidates)
                    _ -> if couldHaveItems appearance
                           then return $
-                               updateElem $ setUnexploredItems elem True
+                               updateElem $ maybeSetFloor $
+                                            setUnexploredItems elem True
                           else error $ "One of the squares on the level is " ++
                                      "confusing me. It looks like (" ++
                                      str ++ ") and the candidates are: " ++

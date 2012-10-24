@@ -8,13 +8,17 @@ import NetHack.Control.ItemListing
 import NetHack.Control.Screen
 import NetHack.Control.More
 import NetHack.Control.Level
+import NetHack.Control.Move
 import NetHack.Data.Level
+
+import Data.Maybe(fromJust)
+import Control.Monad.IO.Class
 
 root :: NHAction ()
 root = update >>
        restoreSave >>
        startCharacter (Combo Healer Gnome Female Neutral) >>
-       exploreLevel
+       decideAction
 
 -- Restores a save if it looks like there is one.
 -- (currently saving the state is not implemented)
@@ -42,17 +46,34 @@ startCharacter combo = do
     gender1 = genderLetter $ gender combo
     alignment1 = alignmentLetter $ alignment combo
 
-handleTurn :: NHAction ()
-handleTurn = do
-  skipMores
-  updateCurrentLevel
-  updateInventoryIfNecessary
+-- What to do...what to do
+decideAction :: NHAction ()
+decideAction = do
+  -- Explore!
+  exploreLevel
+  -- Kill monsters!
+  killMonsters
+  -- Search walls!
+  void searchWalls
 
 -- Explores the dungeon level as specified by an integer.
 -- If the player is not the level, then the bot will attempt to get there
 -- in some way. May bail out if it runs out of ideas to get on the level.
-exploreLevel :: NHAction ()
+exploreLevel :: NHAction Bool
 exploreLevel = do
   handleTurn
+  l <- getLevelM
+  coords <- getCoordsM
+  -- Find interesting places to explore.
+  let places = explorableReachablePositions l coords
+  if places == []
+    then return False
+    else do moveTo $ head (sortByDistance coords places)
+            exploreLevel
 
+killMonsters :: NHAction Bool
+killMonsters = return False
+
+searchWalls :: NHAction Bool
+searchWalls = return False
 

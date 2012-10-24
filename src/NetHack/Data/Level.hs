@@ -25,19 +25,25 @@ module NetHack.Data.Level
    explorableReachablePositions,
    isDungeonFeature,
    levelCoordinates,
-   levelCoordinatesExcept)
+   levelCoordinatesExcept,
+   sortByDistance,
+   findPathTo,
+   forbidMovementFrom)
   where
 
 import NetHack.Data.MonsterInstance(MonsterInstance)
 import Terminal.Data(Attributes, Color(..), foreground, bold, defaultAttributes)
 
 import Data.Array(Array, array)
-import Data.List((\\))
+import Data.List((\\), sortBy, intersect)
 
 import qualified Data.Map as M
 import qualified Data.Set as S
 import qualified Terminal.Data as T
 
+import qualified NetHack.Data.AStar as AStar
+
+import Data.Maybe(fromJust)
 import Control.Monad
 
 import NetHack.Data.Alignment
@@ -48,6 +54,7 @@ import NetHack.Data.Appearance
 data Level = Level { number    :: Int,
                      levelId   :: Int,
                      elements  :: M.Map (Int, Int) Element,
+                     forbiddenMoves :: S.Set ((Int, Int), (Int, Int)),
                      endGame   :: Bool }
                      deriving(Show)
 
@@ -60,7 +67,7 @@ data Element = Element { searched   :: Int,
                          items      :: M.Map (Maybe Char) [Item],
                          monster    :: Maybe MonsterInstance,
                          feature    :: Maybe Feature }
-                       deriving(Show)
+                       deriving(Show, Eq)
 
 type LevelID = Int
 
@@ -141,10 +148,15 @@ removeBoulder e = e { boulder = False }
 setMonsterInstance :: Element -> Maybe MonsterInstance -> Element
 setMonsterInstance e m = e { monster = m }
 
+forbidMovementFrom :: Level -> (Int, Int) -> (Int, Int) -> Level
+forbidMovementFrom level from to =
+  level { forbiddenMoves = S.insert (from, to) (forbiddenMoves level) }
+
 newLevel :: Int -> (Level, Int)
 newLevel id = (Level { number = 1,
                        levelId = id,
                        elements = M.empty,
+                       forbiddenMoves = S.empty,
                        endGame = False },
                id + 1)
 
@@ -222,6 +234,7 @@ featureByCh '9' att
 featureByCh '-' att
   | foreground att == White      = [Wall]
   | foreground att == Yellow     = [OpenedDoor]
+  | otherwise                    = []
 featureByCh '^' att
   | foreground att == Magenta &&
     bold att                     = [Portal Nothing]
@@ -269,6 +282,7 @@ passableFeature Cloud = True
 passableFeature Air = True
 passableFeature Fountain = True
 passableFeature Sink = True
+passableFeature Corridor = True
 passableFeature _ = False
 
 isDungeonFeature :: String -> Bool
@@ -287,7 +301,11 @@ explorablePositions level =
   where
     accumFun accum coord =
       if any (\neighbourcoord ->
-               fmap feature (elemAt level neighbourcoord) == Nothing)
+                let elem = elemAt level neighbourcoord
+                    feat = feature $ fromJust elem
+               --     x = unsafePerformIO $ putStrLn $ "C: " ++ show coord ++ " N: " ++ show neighbourcoord ++ " --> " ++ show elem
+                 in --x `seq`
+                    elem == Nothing || feat == Nothing)
              (neighbourCoordinates coord)
         then coord:accum
         else accum
@@ -295,7 +313,7 @@ explorablePositions level =
 
 explorableReachablePositions :: Level -> (Int, Int) -> [(Int, Int)]
 explorableReachablePositions l c@(x, y) =
-  reachablePositions l c \\ explorablePositions l
+  (reachablePositions l c `intersect` explorablePositions l) \\ [(x,y)]
 
 reachablePositions :: Level -> (Int, Int) -> [(Int, Int)]
 reachablePositions level (x, y) =
@@ -308,19 +326,20 @@ reachablePositions level (x, y) =
                        (S.delete minitem
                          (foldl (\set neighbour ->
                                    if not (S.member neighbour reached) &&
-                                      canPassFrom level (x, y) minitem neighbour
+                                      canPassFrom level minitem neighbour
                                      then S.insert neighbour set
                                      else set)
                                 check (neighbourCoordinates minitem)))
         else S.elems reached
 
 canPassFrom :: Level ->
-               (Int, Int) -> (Int, Int) -> (Int, Int) -> Bool
-canPassFrom level (px1, py1) (x1, y1) (x2, y2)
-  | (passableFeature `fmap` join (feature `fmap` elem1) /= Just True ||
-     passableFeature `fmap` join (feature `fmap` elem2) /= Just True) &&
-    (not ((x1 == px1 && y1 == py1) || (x2 == px1 && y2 == py1))) &&
-    (not ((fmap couldHaveItems (fmap lookedLike elem2)) == Just True)) = False
+               (Int, Int) -> (Int, Int) -> Bool
+canPassFrom level (x1, y1) (x2, y2)
+  | x2 < 1 || y2 < 2 || y2 > 22 || x2 > 80 = False
+
+  | elem2 == Nothing = False
+  | feature jelem2 == Nothing = False
+  | (passableFeature . fromJust . feature) jelem2 == False = False
 
   | (join (fmap feature elem1) == Just OpenedDoor ||
      join (fmap feature elem2) == Just OpenedDoor) =
@@ -331,6 +350,7 @@ canPassFrom level (px1, py1) (x1, y1) (x2, y2)
   where
     elem1 = elemAt level (x1, y1) :: Maybe Element
     elem2 = elemAt level (x2, y2) :: Maybe Element
+    jelem2 = fromJust elem2
 
 neighbourCoordinates :: (Int, Int) -> [(Int, Int)]
 neighbourCoordinates (x, y) =
@@ -342,4 +362,19 @@ neighbourCoordinates (x, y) =
    (x+1, y+1),
    (x, y-1),
    (x, y+1)]
+
+sortByDistance :: (Int, Int) -> [(Int, Int)] -> [(Int, Int)]
+sortByDistance (x, y) coords =
+  sortBy (\coords1 coords2 -> compare (dist coords1) (dist coords2)) coords
+  where
+    dist (x2, y2) = max (abs (x2-x)) (abs (y2-y))
+
+type Coords = (Int, Int)
+
+findPathTo :: Level -> Coords -> Coords -> Maybe [Coords]
+findPathTo level =
+  AStar.findPathTo (\coords ->
+                     (filter (canPassFrom level coords)
+                             $ neighbourCoordinates coords))
+                   (\(x2, y2) (x1, y1) -> max (abs (x2-x1)) (abs (y2-y1)))
 

@@ -32,6 +32,7 @@ executable megaman
                        containers == 0.5.*,
                        clock == 0.3
 
-  extensions:          FlexibleInstances, GeneralizedNewtypeDeriving
+  extensions:          FlexibleInstances, GeneralizedNewtypeDeriving,
+                       ScopedTypeVariables
 
 

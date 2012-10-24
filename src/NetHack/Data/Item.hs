@@ -46,6 +46,8 @@ instance CouldHaveItemsable String where
       isItemString "["  = True
       isItemString "%"  = True
       isItemString "$"  = True
+      isItemString "`"  = True
+      isItemString "´"  = True
       isItemString "="  = True
       isItemString "/"  = True
       isItemString "*"  = True
