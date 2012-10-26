@@ -51,10 +51,26 @@ decideAction :: NHAction ()
 decideAction = do
   -- Explore!
   exploreLevel
+  -- Are there stairs around?
+  wentDownstairs <- goDownStairs
+  if wentDownstairs then decideAction
+                    else do
   -- Kill monsters!
   killMonsters
   -- Search walls!
   void searchWalls
+
+goDownStairs :: NHAction Bool
+goDownStairs = do
+  handleTurn
+  l <- getLevelM
+  coords <- getCoordsM
+  let downStairs = findDownstairs l
+  if downStairs == []
+    then return False
+    else do succeeded <- tryMoveTo (sortByDistance coords downStairs)
+            if succeeded then answer '>' >> return True
+                         else return False
 
 findAndOpenDoors :: NHAction Bool
 findAndOpenDoors = do

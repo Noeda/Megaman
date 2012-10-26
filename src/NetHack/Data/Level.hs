@@ -35,6 +35,7 @@ module NetHack.Data.Level
    neighbourCoordinates,
    isNextTo,
    findClosedDoors,
+   findDownstairs,
    maybeMarkAsOpenDoor)
   where
 
@@ -407,6 +408,13 @@ findClosedDoors :: Level -> [Coords]
 findClosedDoors l =
   filter (\coords -> (elemAt l coords >>= feature) == Just ClosedDoor)
          levelCoordinates
+
+findDownstairs :: Level -> [Coords]
+findDownstairs l =
+  filter (\coords -> case elemAt l coords >>= feature of
+                       Just (DownLadder _) -> True
+                       Just (DownStairs _) -> True
+                       _ -> False) levelCoordinates
 
 maybeMarkAsOpenDoor :: Level -> T.Terminal -> Coords -> Level
 maybeMarkAsOpenDoor level term coords
