@@ -1,7 +1,8 @@
 module NetHack.Control.Move
   (moveTo,
    tryMoveTo,
-   handleTurn)
+   handleTurn,
+   moveLetter)
   where
 
 import NetHack.Monad.NHAction

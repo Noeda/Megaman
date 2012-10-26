@@ -14,6 +14,8 @@ module NetHack.Data.Level
    featureByStr,
    featureByCh,
    elemAt, elemAtDefault,
+   updateElement,
+   featureAt,
    setAppearance,
    setBoulder,
    setFeature,
@@ -30,7 +32,10 @@ module NetHack.Data.Level
    findPathTo,
    forbidMovementFrom,
    Coords(..),
-   neighbourCoordinates)
+   neighbourCoordinates,
+   isNextTo,
+   findClosedDoors,
+   maybeMarkAsOpenDoor)
   where
 
 import NetHack.Data.MonsterInstance(MonsterInstance)
@@ -106,6 +111,9 @@ data Feature = DownStairs (Maybe LevelID) |
 elemAt :: Level -> (Int, Int) -> Maybe Element
 elemAt (Level { elements = elems }) coords = M.lookup coords elems
 
+featureAt :: Level -> Coords -> Maybe Feature
+featureAt level coords = elemAt level coords >>= feature
+
 elemAtDefault :: Level -> (Int, Int) -> Element
 elemAtDefault (Level { elements = elems }) coords =
   M.findWithDefault (initialElement weirdAppearance) coords elems
@@ -142,6 +150,12 @@ setFeature e f = e { feature = f }
 
 setItems :: Element -> M.Map (Maybe Char) [Item] -> Element
 setItems e items = e { items = items }
+
+updateElement :: Level -> Coords -> (Element -> Element) -> Level
+updateElement level@(Level { elements = elems }) coords changer =
+  let oldElem = elemAtDefault level coords
+      newElem = changer oldElem
+   in setElements level (M.insert coords newElem elems)
 
 removeMonster :: Element -> Element
 removeMonster e = e { monster = Nothing }
@@ -384,4 +398,24 @@ findPathTo level =
                                (not $ boulderAt level target) &&
                                canPassFrom level coords target)
                              $ neighbourCoordinates coords))
+
+isNextTo :: Coords -> Coords -> Bool
+isNextTo (x1,y1) (x2,y2) = abs (x2-x1) <= 1 &&
+                           abs (y2-y1) <= 1
+
+findClosedDoors :: Level -> [Coords]
+findClosedDoors l =
+  filter (\coords -> (elemAt l coords >>= feature) == Just ClosedDoor)
+         levelCoordinates
+
+maybeMarkAsOpenDoor :: Level -> T.Terminal -> Coords -> Level
+maybeMarkAsOpenDoor level term coords
+  | featureAt level coords /= Just ClosedDoor = level
+  | featureByCh char attributes /= []   = level
+  | otherwise                           =
+       updateElement level coords
+                     (\elem -> setFeature elem (Just OpenedDoor))
+  where
+    char = head $ T.strAt coords term
+    attributes = T.attributesAt coords term
 

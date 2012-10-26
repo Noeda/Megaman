@@ -1,8 +1,9 @@
 module NetHack.Monad.NHAction
   (runNHAction, answer, NHAction(), update, getTerminalM, get, putLevelM,
    putInventoryM, putInventoryNeedsUpdateM, getElementM, putElementM,
-   getMessagesM,
+   getMessagesM, control,
    getLevelM, bailout, getCoordsM, forbidMovementFromM,
+   maybeMarkAsOpenDoorM,
    Answerable())
   where
 
@@ -68,6 +69,12 @@ putInventoryNeedsUpdateM :: Bool -> NHAction ()
 putInventoryNeedsUpdateM b =
   do ns <- get; put $ NS.setInventoryNeedsUpdate ns b
 
+maybeMarkAsOpenDoorM :: Coords -> NHAction ()
+maybeMarkAsOpenDoorM coords =
+  do t <- getTerminalM
+     level <- getLevelM
+     putLevelM $ maybeMarkAsOpenDoor level t coords
+
 forbidMovementFromM :: (Int, Int) -> (Int, Int) -> NHAction ()
 forbidMovementFromM from to =
   do level <- getLevelM
@@ -102,4 +109,38 @@ instance Answerable B.ByteString where
     oldState <- get
     liftIO $ atomically $ NS.write oldState $ str
     update
+
+control :: Char -> String
+control 'A' = "\x01"
+control 'B' = "\x02"
+control 'C' = "\x03"
+control 'D' = "\x04"
+control 'E' = "\x05"
+control 'F' = "\x06"
+control 'G' = "\x07"
+control 'H' = "\x08"
+control 'I' = "\x09"
+control 'J' = "\x0a"
+control 'K' = "\x0b"
+control 'L' = "\x0c"
+control 'M' = "\x0d"
+control 'N' = "\x0e"
+control 'O' = "\x0f"
+control 'P' = "\x10"
+control 'Q' = "\x11"
+control 'R' = "\x12"
+control 'S' = "\x13"
+control 'T' = "\x14"
+control 'U' = "\x15"
+control 'V' = "\x16"
+control 'W' = "\x17"
+control 'X' = "\x18"
+control 'Y' = "\x19"
+control 'Z' = "\x1a"
+control '[' = "\x1b"
+control '\\' = "\x1c"
+control '^' = "\x1e"
+control '_' = "\x1f"
+control _ =
+  error $ "Invalid control character requested (" ++ show control ++ ")"
 

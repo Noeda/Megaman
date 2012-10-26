@@ -17,6 +17,7 @@ module Terminal.Data
    strAt,
    lineAt,
    attributesAt,
+   appearanceAt,
    cursorX,
    cursorY,
    coords)
@@ -56,6 +57,9 @@ attributesAt (x, y) t = attributes $ elemAt (x, y) t
 
 elemAt :: (Int, Int) -> Terminal -> Element
 elemAt (x, y) (Terminal { elements = elems }) = elems ! (x,y)
+
+appearanceAt :: (Int, Int) -> Terminal -> (String, Attributes)
+appearanceAt coords t = (strAt coords t, attributesAt coords t)
 
 width :: Terminal -> Int
 width Terminal { elements = arr } = fst $ snd $ bounds arr

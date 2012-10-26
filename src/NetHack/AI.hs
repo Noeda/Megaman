@@ -56,22 +56,73 @@ decideAction = do
   -- Search walls!
   void searchWalls
 
+findAndOpenDoors :: NHAction Bool
+findAndOpenDoors = do
+  handleTurn
+  l <- getLevelM
+  coords <- getCoordsM
+  let closedDoors = concatMap neighbourCoordinates $ findClosedDoors l
+  if closedDoors == []
+    then return False
+    else do succeeded <- tryMoveTo (sortByDistance coords closedDoors)
+            if succeeded then openNeighbourDoors
+                         else return False
+
+openNeighbourDoors :: NHAction Bool
+openNeighbourDoors = openNeighbourDoors2 False
+  where
+  openNeighbourDoors2 :: Bool -> NHAction Bool
+  openNeighbourDoors2 status = do
+    handleTurn
+    l <- getLevelM
+    coords <- getCoordsM
+    let closedDoors = filter (isNextTo coords) $ findClosedDoors l
+    openNeighbourDoors3 l coords closedDoors status
+
+  openNeighbourDoors3 :: Level -> Coords -> [Coords] -> Bool -> NHAction Bool
+  openNeighbourDoors3 _ _ [] status = return status
+  openNeighbourDoors3 l coords closedDoors status = do
+    answer $ "o" ++ [direction]
+    yay <- liftM2 (||) (isSomewhereOnScreen "This door is already open.")
+                       (isSomewhereOnScreen "You see no door there.")
+    if yay then maybeMarkAsOpenDoorM closedDoor >> return True
+           else do
+    locked <- isSomewhereOnScreen "This door is locked."
+    if locked
+      then do answer $ control 'D' ++ [direction]
+              openNeighbourDoors2 True
+      else do resists <- isSomewhereOnScreen "The door resists!"
+              if resists then openNeighbourDoors2 True
+                         else handleTurn >> return True
+
+    where
+      direction = moveLetter coords closedDoor
+      closedDoor = head closedDoors
+
 -- Explores the dungeon level as specified by an integer.
 -- If the player is not the level, then the bot will attempt to get there
 -- in some way. May bail out if it runs out of ideas to get on the level.
 exploreLevel :: NHAction Bool
-exploreLevel = do
-  handleTurn
-  l <- getLevelM
-  coords <- getCoordsM
-  -- Find interesting places to explore.
-  let places = explorableReachablePositions l coords
-  liftIO $ putStrLn $ show (sortByDistance coords places)
-  if places == []
-    then return False
-    else do succeeded <- tryMoveTo (sortByDistance coords places)
-            if succeeded then exploreLevel
-                         else return False
+exploreLevel = exploreLevel2 False
+  where
+  exploreLevel2 status = do
+    handleTurn
+    l <- getLevelM
+    coords <- getCoordsM
+    -- Find interesting places to explore.
+    let places = explorableReachablePositions l coords
+    liftIO $ putStrLn $ show (sortByDistance coords places)
+    if places == []
+      then doorFinding
+      else do succeeded <- tryMoveTo (sortByDistance coords places)
+              if succeeded then exploreLevel2 True
+                           else doorFinding
+
+    where
+      doorFinding = do openedDoors <- findAndOpenDoors
+                       if openedDoors then exploreLevel2 status
+                                      else return status
+
 
 killMonsters :: NHAction Bool
 killMonsters = return False
