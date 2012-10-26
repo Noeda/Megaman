@@ -41,10 +41,14 @@ boulderCandidates :: Appearance -> [ElementCandidate]
 boulderCandidates ("0", _) = [Boulder]
 boulderCandidates _        = []
 
-featureCandidates :: Appearance -> [ElementCandidate]
-featureCandidates ([x], attributes) =
-  map DungeonFeature $ featureByCh x attributes
-featureCandidates _ = []
+featureCandidates :: Coords -> Coords -> Appearance -> [ElementCandidate]
+featureCandidates (x1, y1) (x2, y2) ([x], attributes) =
+  -- Empty space next to the player is stone! I hope. Won't hold if the
+  -- player is blind.
+  if abs (x1-x2) <= 1 && abs (y1-y2) <= 1 && x == ' '
+    then [DungeonFeature Rock]
+    else map DungeonFeature $ featureByCh x attributes
+featureCandidates _ _ _ = []
 
 monsterCandidates :: Appearance -> [ElementCandidate]
 monsterCandidates (str, attributes) =
@@ -92,18 +96,32 @@ updateWithCandidate element candidate =
 noInversion :: T.Attributes -> T.Attributes
 noInversion attrs = T.setInverse attrs False
 
-updateCurrentLevel :: NHAction ()
-updateCurrentLevel = do
+solidRockify :: NHAction ()
+solidRockify = do
   l <- getLevelM
   t <- getTerminalM
-  newElements <- foldM (updateLevelElement l t) (elements l) $
+  playercoords <- getCoordsM
+  let neighbourcoords = neighbourCoordinates playercoords
+  mapM_ (\coord -> if T.strAt coord t == " "
+                      then do elem <- getElementM coord
+                              putElementM (setFeature elem (Just Rock)) coord
+                      else return ()) neighbourcoords
+
+updateCurrentLevel :: NHAction ()
+updateCurrentLevel = do
+  -- Set solid rock next to player
+  solidRockify
+  l <- getLevelM
+  t <- getTerminalM
+  playercoords <- getCoordsM
+  newElements <- foldM (updateLevelElement l t playercoords) (elements l) $
                    levelCoordinatesExcept (T.coords t)
   putLevelM $ setElements l newElements
   l <- getLevelM
   when (((fmap feature) . (elemAt l)) (T.coords t) == Nothing) $ do
     lookDownUpdate
   where
-    updateLevelElement level terminal elements coords =
+    updateLevelElement level terminal playercoords elements coords =
       let appearance =
             (T.strAt coords terminal, T.attributesAt coords terminal)
           oldAppearance = lookedLike elem
@@ -112,7 +130,8 @@ updateCurrentLevel = do
           updateElem e = M.insert coords (setAppearance e appearance) elements
        in if appearance /= oldAppearance
      then let candidates = concat [monsterCandidates appearance,
-                                   featureCandidates appearance,
+                                   featureCandidates playercoords coords
+                                                     appearance,
                                    boulderCandidates appearance]
            in do newCandidates <- if length candidates > 1
                    then do farlooked <- farLook coords
@@ -120,7 +139,9 @@ updateCurrentLevel = do
                                       (farLookFilter farlooked) candidates
                    else return $ candidates
                  case length newCandidates of
-                   0 -> return $ updateElem elem
+                   0 -> return $ if couldHaveItems appearance
+                                   then updateElem $ maybeSetFloor elem
+                                   else updateElem elem
                    1 -> return $ updateElem
                      (updateWithCandidate elem $ head newCandidates)
                    _ -> if couldHaveItems appearance

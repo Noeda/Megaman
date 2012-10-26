@@ -66,6 +66,7 @@ exploreLevel = do
   coords <- getCoordsM
   -- Find interesting places to explore.
   let places = explorableReachablePositions l coords
+  liftIO $ putStrLn $ show (sortByDistance coords places)
   if places == []
     then return False
     else do moveTo $ head (sortByDistance coords places)

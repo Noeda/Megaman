@@ -33,6 +33,11 @@ instance Matcher (Maybe Bool) where
                       [] -> Just False
                       _  -> Just True
 
+instance Matcher Bool where
+  match regex str = case compileAndExecuteList regex str of
+                      [] -> False
+                      _  -> True
+
 compile :: String -> R.Regex
 compile str =
   case R.compile RL.defaultCompOpt RL.defaultExecOpt str of

@@ -1,6 +1,7 @@
 module NetHack.Monad.NHAction
   (runNHAction, answer, NHAction(), update, getTerminalM, get, putLevelM,
    putInventoryM, putInventoryNeedsUpdateM, getElementM, putElementM,
+   getMessagesM,
    getLevelM, bailout, getCoordsM, forbidMovementFromM)
   where
 
@@ -42,6 +43,9 @@ getLevelM = do ns <- get; return $ NS.currentLevel ns
 
 putLevelM :: Level -> NHAction ()
 putLevelM l = do ns <- get; put $ NS.setLevel ns l
+
+getMessagesM :: NHAction [String]
+getMessagesM = do ns <- get; return $ NS.messages ns
 
 getCoordsM :: NHAction (Int, Int)
 getCoordsM = do t <- getTerminalM; return $ T.coords t

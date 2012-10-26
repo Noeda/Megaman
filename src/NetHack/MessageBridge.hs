@@ -38,7 +38,7 @@ data Dispatcher = Dispatcher { ptyChannels :: (NetHackChan,
 
 -- Time to wait after the last received data before running bot AI
 -- (nanoseconds)
-graceTime = 200000000
+graceTime = 100000000
 
 netHackIteratee :: MonadIO m => NetHackChan ->
                                 E.Iteratee B.ByteString m ()

@@ -9,6 +9,8 @@ import NetHack.Control.Level
 import NetHack.Control.ItemListing
 import NetHack.Data.Level
 
+import Control.Monad.IO.Class
+
 handleTurn :: NHAction ()
 handleTurn = do
   skipMores
@@ -21,6 +23,7 @@ moveTo target = do
   if coords == target
     then return True
     else do l <- getLevelM
+            liftIO $ putStrLn $ "going to: " ++ show target
             case findPathTo l coords target of
               Nothing   -> return False
               Just path -> do stepTo (head path)

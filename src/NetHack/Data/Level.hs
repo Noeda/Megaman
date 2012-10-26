@@ -28,7 +28,9 @@ module NetHack.Data.Level
    levelCoordinatesExcept,
    sortByDistance,
    findPathTo,
-   forbidMovementFrom)
+   forbidMovementFrom,
+   Coords(..),
+   neighbourCoordinates)
   where
 
 import NetHack.Data.MonsterInstance(MonsterInstance)
@@ -51,10 +53,12 @@ import NetHack.Data.Item
 
 import NetHack.Data.Appearance
 
+type Coords = (Int, Int)
+
 data Level = Level { number    :: Int,
                      levelId   :: Int,
-                     elements  :: M.Map (Int, Int) Element,
-                     forbiddenMoves :: S.Set ((Int, Int), (Int, Int)),
+                     elements  :: M.Map Coords Element,
+                     forbiddenMoves :: S.Set (Coords, Coords),
                      endGame   :: Bool }
                      deriving(Show)
 
@@ -303,9 +307,7 @@ explorablePositions level =
       if any (\neighbourcoord ->
                 let elem = elemAt level neighbourcoord
                     feat = feature $ fromJust elem
-               --     x = unsafePerformIO $ putStrLn $ "C: " ++ show coord ++ " N: " ++ show neighbourcoord ++ " --> " ++ show elem
-                 in --x `seq`
-                    elem == Nothing || feat == Nothing)
+                 in elem == Nothing || feat == Nothing)
              (neighbourCoordinates coord)
         then coord:accum
         else accum
@@ -369,12 +371,9 @@ sortByDistance (x, y) coords =
   where
     dist (x2, y2) = max (abs (x2-x)) (abs (y2-y))
 
-type Coords = (Int, Int)
-
 findPathTo :: Level -> Coords -> Coords -> Maybe [Coords]
 findPathTo level =
   AStar.findPathTo (\coords ->
                      (filter (canPassFrom level coords)
                              $ neighbourCoordinates coords))
-                   (\(x2, y2) (x1, y1) -> max (abs (x2-x1)) (abs (y2-y1)))
 

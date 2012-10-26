@@ -21,8 +21,7 @@ farLook (x, y) = do
                  replicate (cy - y) 'k' ++ "."
   answer str
   str <- farLookResult
-  shouldIskipMore <- morePrompt
-  when shouldIskipMore $ answer ' '
+  answer ' '
   return str
 
 farLookResult :: NHAction String
