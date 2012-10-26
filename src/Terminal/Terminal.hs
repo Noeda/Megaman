@@ -363,10 +363,17 @@ cursorIsInside (left, top) (right, bottom) t =
 -- For debugging
 printOut :: Terminal -> IO ()
 printOut t@(Terminal { elements = elems }) = do
+    putStr "\x1b[2J\x1b[1;1H"
     neutralizeAttributes
+    putStr "   "
+    mapM_ (\x -> putStr (show (x `div` 10))) [1..80]
+    putStr "\n   "
+    mapM_ (\x -> putStr (show (x `mod` 10))) [1..80]
+    putStr "\n  "
     mapM_ (\x -> putChar '-') [1..(w+2)]
     putChar '\n'
     mapM_ (\y -> neutralizeAttributes >>
+                 putStr ((show (y `div` 10)) ++ (show (y `mod` 10))) >>
                  putChar '|' >>
                  mapM_ (\x -> do let e = elems ! (x, y)
                                  setAttributes (attributes e)
@@ -374,6 +381,7 @@ printOut t@(Terminal { elements = elems }) = do
                  neutralizeAttributes >>
                  putChar '|' >>
                  putChar '\n') [1..h]
+    putStr "  "
     mapM_ (\x -> putChar '-') [1..(w+2)]
     putChar '\n'
     where
