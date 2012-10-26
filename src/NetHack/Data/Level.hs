@@ -371,9 +371,17 @@ sortByDistance (x, y) coords =
   where
     dist (x2, y2) = max (abs (x2-x)) (abs (y2-y))
 
+boulderAt :: Level -> Coords -> Bool
+boulderAt l coords =
+  case elemAt l coords >>= (Just . boulder) of
+    Just True -> True
+    _ -> False
+
 findPathTo :: Level -> Coords -> Coords -> Maybe [Coords]
 findPathTo level =
   AStar.findPathTo (\coords ->
-                     (filter (canPassFrom level coords)
+                     (filter (\target ->
+                               (not $ boulderAt level target) &&
+                               canPassFrom level coords target)
                              $ neighbourCoordinates coords))
 

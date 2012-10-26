@@ -1,5 +1,6 @@
 module NetHack.Control.Move
   (moveTo,
+   tryMoveTo,
    handleTurn)
   where
 
@@ -16,6 +17,14 @@ handleTurn = do
   skipMores
   updateCurrentLevel
   updateInventoryIfNecessary
+
+tryMoveTo :: [Coords] -> NHAction Bool
+tryMoveTo [] = return False
+tryMoveTo (c:coords) = do
+  succeeded <- moveTo c
+  newCoords <- getCoordsM
+  if newCoords == c || succeeded then return True
+                                 else tryMoveTo coords
 
 moveTo :: (Int, Int) -> NHAction Bool
 moveTo target = do

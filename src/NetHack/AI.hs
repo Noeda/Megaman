@@ -69,8 +69,9 @@ exploreLevel = do
   liftIO $ putStrLn $ show (sortByDistance coords places)
   if places == []
     then return False
-    else do moveTo $ head (sortByDistance coords places)
-            exploreLevel
+    else do succeeded <- tryMoveTo (sortByDistance coords places)
+            if succeeded then exploreLevel
+                         else return False
 
 killMonsters :: NHAction Bool
 killMonsters = return False

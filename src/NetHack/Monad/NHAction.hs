@@ -2,7 +2,8 @@ module NetHack.Monad.NHAction
   (runNHAction, answer, NHAction(), update, getTerminalM, get, putLevelM,
    putInventoryM, putInventoryNeedsUpdateM, getElementM, putElementM,
    getMessagesM,
-   getLevelM, bailout, getCoordsM, forbidMovementFromM)
+   getLevelM, bailout, getCoordsM, forbidMovementFromM,
+   Answerable())
   where
 
 import NetHack.Data.Level

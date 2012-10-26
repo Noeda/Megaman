@@ -2,7 +2,7 @@ module NetHack.Control.More
   (skipMores)
   where
 
-import Data.Foldable hiding(any)
+import Data.Foldable hiding(any, concat)
 import Control.Monad(when)
 import NetHack.Monad.NHAction
 import NetHack.Control.Screen
@@ -12,13 +12,26 @@ import qualified Regex as R
 harmlessMores :: [NHAction Bool]
 harmlessMores = [itIsWrittenInTheBook, welcomeBackToNetHack]
 
+questionify :: Answerable a => NHAction Bool -> a -> NHAction Bool
+questionify question myAnswer = do
+  result <- question
+  if result then answer myAnswer >> return True
+            else return False
+
+questions :: [NHAction Bool]
+questions = map (\(f,ans) -> questionify f ans)
+                [(doYouWantToKeepSaveFile, 'n'),
+                 (doYouWantYourPossessionsIdentified, 'q'),
+                 (optionalDie, 'n')]
+
 skipMores :: NHAction ()
 skipMores = do
   pleaseRepeat <-
     foldlM (\result ac -> do test <- ac
                              when test $ answer ' '
                              if result then return True else ac)
-           False harmlessMores
+           False $ concat [harmlessMores,
+                           questions]
   when pleaseRepeat skipMores
   skipHarmlessMessages
 

@@ -10,7 +10,10 @@ module NetHack.Control.Screen
    welcomeBackToNetHack,
    gameScreen,
    restoringSave,
-   morePrompt)
+   morePrompt,
+   doYouWantToKeepSaveFile,
+   doYouWantYourPossessionsIdentified,
+   optionalDie)
   where
 
 import NetHack.Monad.NHAction
@@ -49,6 +52,14 @@ pickTheGender    = isSomewhereOnScreen "Pick the gender of your"
 pickTheAlignment = isSomewhereOnScreen "Pick the alignment of your"
 itIsWrittenInTheBook = isSomewhereOnScreen "It is written in the Book of"
 
+doYouWantToKeepSaveFile =
+  isSomewhereOnScreen "Do you want to keep the save file?"
+
+doYouWantYourPossessionsIdentified =
+  isSomewhereOnScreen "Do you want your possessions identified?"
+
+optionalDie = isSomewhereOnScreen "Die? [yn]"
+
 morePrompt = isSomewhereOnScreen "--More--"
 restoringSave = isMessageOnScreen "Restoring save file..."
 
@@ -63,3 +74,4 @@ isMessageOnScreen str = do ns <- get; return (str `elem` messages ns)
 welcomeBackToNetHack = liftM2 (||)
                          (isSomewhereOnScreen ", welcome to NetHack!")
                          (isSomewhereOnScreen ", welcome back to NetHack!")
+
