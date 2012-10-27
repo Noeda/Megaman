@@ -1,4 +1,6 @@
-module NetHack.Control.Level(updateCurrentLevel) where
+module NetHack.Control.Level
+  (updateCurrentLevel)
+  where
 
 import Data.Foldable(foldlM)
 
@@ -12,6 +14,7 @@ import NetHack.Monad.NHAction
 import NetHack.Control.Farlook
 import NetHack.Control.Screen
 import NetHack.Control.ItemListing
+import NetHack.Control.LevelTransition
 
 import Control.Monad.State
 import Control.Monad.ST
@@ -25,9 +28,6 @@ import qualified Data.ByteString.Char8 as B
 
 import qualified Terminal.Data as T
 import qualified Terminal.Terminal as T
-
-captureLevelFromScreen :: T.Terminal -> Maybe Int
-captureLevelFromScreen = T.captureInteger "Dlvl:([0-9]+)" (1, 23) (80, 23)
 
 type STElementArray s = ST s (STArray s (Int, Int) Element)
 
@@ -109,6 +109,7 @@ solidRockify = do
 
 updateCurrentLevel :: NHAction ()
 updateCurrentLevel = do
+  handleDungeonLevelTransition
   -- Set solid rock next to player
   solidRockify
   l <- getLevelM
@@ -198,4 +199,19 @@ examineItemsOnFloor coords = do
   oldElem <- getElementM coords
   items <- itemsOnScreen (\_ -> False)
   (flip putElementM $ coords) $ setItems oldElem (M.mapKeys Just items)
+
+handleDungeonLevelTransition :: NHAction ()
+handleDungeonLevelTransition = do
+  t <- getTerminalM
+  ns <- get
+
+  let oldLevelNumber = dungeonLevel ns
+  oldLevel <- getLevelM
+
+  put $ updateDungeonLevel ns t
+
+  ns <- get
+
+  let newLevelNumber = dungeonLevel ns
+  when (oldLevelNumber /= newLevelNumber) applyTransition
 

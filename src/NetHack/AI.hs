@@ -69,7 +69,8 @@ goDownStairs = do
   if downStairs == []
     then return False
     else do succeeded <- tryMoveTo (sortByDistance coords downStairs)
-            if succeeded then answer '>' >> return True
+            if succeeded then goingDownstairs >>
+                              answer '>' >> return True
                          else return False
 
 findAndOpenDoors :: NHAction Bool

@@ -1,12 +1,15 @@
 module NetHack.Monad.NHAction
-  (runNHAction, answer, NHAction(), update, getTerminalM, get, putLevelM,
+  (runNHAction, answer, NHAction(), update, getTerminalM, get,
    putInventoryM, putInventoryNeedsUpdateM, getElementM, putElementM,
-   getMessagesM, control,
+   getMessagesM, control, nextRunningIDM,
    getLevelM, bailout, getCoordsM, forbidMovementFromM,
+   putLevelM, putCurrentLevelM,
    maybeMarkAsOpenDoorM,
+   goingDownstairs, getLevelTransitionM, resetLevelTransitionM,
    Answerable())
   where
 
+import NetHack.Data.LevelTransition
 import NetHack.Data.Level
 import qualified NetHack.Data.NetHackState as NS
 import NetHack.Data.Messages
@@ -46,6 +49,9 @@ getLevelM = do ns <- get; return $ NS.currentLevel ns
 putLevelM :: Level -> NHAction ()
 putLevelM l = do ns <- get; put $ NS.setLevel ns l
 
+putCurrentLevelM :: Level -> NHAction ()
+putCurrentLevelM l = do ns <- get; put $ NS.setCurrentLevel ns l
+
 getMessagesM :: NHAction [String]
 getMessagesM = do ns <- get; return $ NS.messages ns
 
@@ -68,6 +74,27 @@ putInventoryM i = do ns <- get; put $ NS.setInventory ns i
 putInventoryNeedsUpdateM :: Bool -> NHAction ()
 putInventoryNeedsUpdateM b =
   do ns <- get; put $ NS.setInventoryNeedsUpdate ns b
+
+nextRunningIDM :: NHAction Int
+nextRunningIDM = do
+  ns <- get
+  let (id, newNs) = NS.nextRunningID ns
+  put newNs
+  return id
+
+getLevelTransitionM :: NHAction (Maybe LevelTransition)
+getLevelTransitionM = do ns <- get; return $ NS.levelTransition ns
+
+resetLevelTransitionM :: NHAction ()
+resetLevelTransitionM = do ns <- get; put $ NS.resetLevelTransition ns
+
+goingDownstairs :: NHAction ()
+goingDownstairs = do
+  l <- getLevelM
+  coords <- getCoordsM
+  ns <- get
+  let dLevel = NS.dungeonLevel ns
+  put $ NS.setLevelTransition ns $ goingDownstairsTransition dLevel coords
 
 maybeMarkAsOpenDoorM :: Coords -> NHAction ()
 maybeMarkAsOpenDoorM coords =

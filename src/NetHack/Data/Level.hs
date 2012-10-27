@@ -19,6 +19,7 @@ module NetHack.Data.Level
    setAppearance,
    setBoulder,
    setFeature,
+   setStairsLevel,
    removeBoulder,
    removeMonster,
    setMonsterInstance,
@@ -34,6 +35,7 @@ module NetHack.Data.Level
    Coords(..),
    neighbourCoordinates,
    isNextTo,
+   levelID,
    findClosedDoors,
    findDownstairs,
    maybeMarkAsOpenDoor)
@@ -62,7 +64,7 @@ import NetHack.Data.Appearance
 type Coords = (Int, Int)
 
 data Level = Level { number    :: Int,
-                     levelId   :: Int,
+                     levelID   :: LevelID,
                      elements  :: M.Map Coords Element,
                      forbiddenMoves :: S.Set (Coords, Coords),
                      endGame   :: Bool }
@@ -173,7 +175,7 @@ forbidMovementFrom level from to =
 
 newLevel :: Int -> (Level, Int)
 newLevel id = (Level { number = 1,
-                       levelId = id,
+                       levelID = id,
                        elements = M.empty,
                        forbiddenMoves = S.empty,
                        endGame = False },
@@ -426,4 +428,13 @@ maybeMarkAsOpenDoor level term coords
   where
     char = head $ T.strAt coords term
     attributes = T.attributesAt coords term
+
+setStairsLevel :: Element -> LevelID -> Element
+setStairsLevel el id = setStairsLevel2 (feature el) id
+  where
+  setStairsLevel2 :: Maybe Feature -> LevelID -> Element
+  setStairsLevel2 (Just (DownLadder _)) id =
+    setFeature el (Just $ DownLadder $ Just id)
+  setStairsLevel2 (Just (DownStairs _)) id =
+    setFeature el (Just $ DownStairs $ Just id)
 
