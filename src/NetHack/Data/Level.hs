@@ -90,6 +90,8 @@ data Feature = DownStairs (Maybe LevelID) |
                Portal     (Maybe LevelID) |
                Throne           |
                Floor            |
+               UnknownFloor     |  -- Just like Floor but
+                                   -- 'is not known for sure it is floor'
                Wall             |
                ClosedDoor       |
                OpenedDoor       |
@@ -290,6 +292,7 @@ featureByCh _ _ = []
 passableFeature :: Feature -> Bool
 passableFeature Throne = True
 passableFeature Floor = True
+passableFeature UnknownFloor = True
 passableFeature (DownStairs _) = True
 passableFeature (UpStairs _) = True
 passableFeature (UpLadder _) = True
@@ -321,11 +324,14 @@ explorablePositions level =
   foldl accumFun [] coords
   where
     accumFun accum coord =
-      if any (\neighbourcoord ->
-                let elem = elemAt level neighbourcoord
-                    feat = feature $ fromJust elem
-                 in elem == Nothing || feat == Nothing)
-             (neighbourCoordinates coord)
+      let elem = elemAt level coord
+          feat = feature $ fromJust elem
+       in if any (\neighbourcoord ->
+                    let elem = elemAt level neighbourcoord
+                        feat = feature $ fromJust elem
+                     in elem == Nothing || feat == Nothing)
+                 (neighbourCoordinates coord) ||
+             (elem /= Nothing && feat == Just UnknownFloor)
         then coord:accum
         else accum
     coords = [(x, y) | x <- [2..79], y <- [3..21]]

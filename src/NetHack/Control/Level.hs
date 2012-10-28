@@ -73,7 +73,7 @@ farLookFilter str m@(Monster mdata) =
 maybeSetFloor :: Element -> Element
 maybeSetFloor el =
   if feature el == Nothing
-    then setFeature el (Just Floor)
+    then setFeature el (Just UnknownFloor)
     else el
 
 updateWithCandidate :: Element -> ElementCandidate -> Element
@@ -119,7 +119,8 @@ updateCurrentLevel = do
                    levelCoordinatesExcept (T.coords t)
   putLevelM $ setElements l newElements
   l <- getLevelM
-  when (((fmap feature) . (elemAt l)) (T.coords t) == Nothing) $ do
+  let f = (fmap feature) . (elemAt l) $ T.coords t
+  when (f == Nothing || f == Just (Just UnknownFloor)) $ do
     lookDownUpdate
   where
     updateLevelElement level terminal playercoords elements coords =
@@ -181,12 +182,25 @@ lookDownUpdate = do
     0 -> do putElementM (setFeature oldElem (Just Floor)) coords
     _ -> return ()
 
+  oldElem <- getElementM coords
+
   -- Single item
   case R.match "You see here (.+)\\." firstLine :: [String] of
     [] -> return ()
-    [item] -> putElementM (setItems oldElem $
-                           M.singleton Nothing $
-                           [canonicalizeItemName item]) coords
+    [item] -> putElementM
+                (if feature oldElem == Just UnknownFloor
+                   then setFeature itemizedElem (Just Floor)
+                   else itemizedElem) coords
+              where
+                itemizedElem = setItems oldElem $
+                                 M.singleton Nothing $
+                                 [canonicalizeItemName item]
+  
+  oldElem <- getElementM coords
+
+  case R.match "You see no objects here." firstLine :: [String] of
+    [] -> return ()
+    [_] -> putElementM (setFeature oldElem (Just Floor)) coords
 
   let shouldExamineItems = T.isSomewhereOnScreen "Things that are here: " t
   while morePrompt $ answer ' '
