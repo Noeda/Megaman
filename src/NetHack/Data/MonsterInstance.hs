@@ -8,7 +8,6 @@ module NetHack.Data.MonsterInstance
    monsterByAppearance)
   where
 
-import Data.Maybe
 import qualified Data.Map as M
 
 import Data.Foldable(foldl')
@@ -62,7 +61,7 @@ tunedMoSymbol = monsterSymbolTuning . MD.moSymbol
 
 monsterMapByString :: M.Map String [MD.Monster]
 monsterMapByString =
-  foldl' (\map name -> let mon = fromJust $ MD.monster name
+  foldl' (\map name -> let Just mon = MD.monster name
                            symb = [tunedMoSymbol mon]
                         in M.insert symb
                              (case M.lookup symb map of

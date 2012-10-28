@@ -34,7 +34,8 @@ data NetHackState = NetHackState { currentLevelID :: Int,
                                    levelTransition :: Maybe LevelTransition }
 
 currentLevel :: NetHackState -> Level
-currentLevel ns = fromJust $ M.lookup id (levels ns)
+currentLevel ns = let Just result = M.lookup id (levels ns)
+                   in result
                   where
                     id = currentLevelID ns
 

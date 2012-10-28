@@ -114,6 +114,7 @@ update = do
   oldState <- get
   newState <- liftIO $ atomically $ NS.update oldState
   liftIO $ T.printOut $ NS.terminal newState
+  liftIO $ putStrLn $ show $ NS.levelTransition newState
   put newState
 
 class Answerable a where

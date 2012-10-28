@@ -11,7 +11,7 @@ module NetHack.Data.LevelTransition
 
 import NetHack.Data.Level hiding (DownStairs)
 
-data LevelTransition = DownStairs Int Coords
+data LevelTransition = DownStairs Int Coords deriving(Show)
 
 -- | This function makes a transition that expects stairs or ladder taken
 -- down. It takes two parameters: one that tells from which level stairs
