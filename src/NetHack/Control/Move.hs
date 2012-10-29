@@ -2,7 +2,8 @@ module NetHack.Control.Move
   (moveTo,
    tryMoveTo,
    handleTurn,
-   moveLetter)
+   moveLetter,
+   MoveConfiguration(..))
   where
 
 import NetHack.Monad.NHAction
@@ -10,6 +11,9 @@ import NetHack.Control.More
 import NetHack.Control.Level
 import NetHack.Control.ItemListing
 import NetHack.Data.Level
+
+import qualified Terminal.Data as T
+import qualified Terminal.Terminal as T
 
 import Control.Monad.IO.Class
 
@@ -19,41 +23,69 @@ handleTurn = do
   updateCurrentLevel
   updateInventoryIfNecessary
 
-tryMoveTo :: [Coords] -> NHAction Bool
-tryMoveTo [] = return False
-tryMoveTo (c:coords) = do
-  succeeded <- moveTo c
+data MoveConfiguration = IgnoreMonsters |
+                         CancelAtMonsters Int |
+                         HitMonster
+
+tryMoveTo :: MoveConfiguration -> [Coords] -> NHAction Bool
+tryMoveTo _ [] = return False
+tryMoveTo conf (c:coords) = do
+  cancel <- moveTo conf c
   newCoords <- getCoordsM
-  if newCoords == c || succeeded then return True
-                                 else tryMoveTo coords
+  if newCoords == c then return True
+                    else if cancel then return False
+                                   else tryMoveTo conf coords
 
-moveTo :: (Int, Int) -> NHAction Bool
-moveTo target = do
-  coords <- getCoordsM
-  if coords == target
-    then return True
-    else do l <- getLevelM
-            liftIO $ putStrLn $ "going to: " ++ show target
-            case findPathTo l coords target of
-              Nothing   -> return False
-              Just path -> do stepTo (head path)
-                              moveTo target
+moveTo :: MoveConfiguration -> (Int, Int) -> NHAction Bool
+moveTo conf target = moveTo2 conf target False
+  where
+  moveTo2 conf target status = do
+    coords <- getCoordsM
+    if coords == target
+      then return True
+      else do l <- getLevelM
+              case conf of
+                (CancelAtMonsters range) ->
+                  do hostiles <- hostileMonstersWithinRangeM range
+                     return $ if hostiles /= [] then True else False
+                _ -> do liftIO $ putStrLn $ "going to: " ++ show target
+                        case findPathTo l coords target of
+                         Nothing   -> return False
+                         Just path ->
+                           do result <- stepTo conf (head path)
+                              case result of
+                                (Left False) -> return status
+                                (Left True) -> moveTo2 conf target True
+                                (Right Cancel) -> return status
 
-stepTo :: (Int, Int) -> NHAction Bool
-stepTo target = do
+data Cancel = Cancel
+
+stepTo :: MoveConfiguration -> (Int, Int) -> NHAction (Either Bool Cancel)
+stepTo conf target = do
   coords <- getCoordsM
   let letter = moveLetter coords target
   answer letter
-  skipMores
+  t <- getTerminalM
+  cancel <- let hitSomething = T.isSomewhereOnScreen "You kill" t ||
+                               T.isSomewhereOnScreen "You destroy" t ||
+                               T.isSomewhereOnScreen "You hit" t ||
+                               T.isSomewhereOnScreen "You smite" t ||
+                               T.isSomewhereOnScreen "You miss" t
+             in case conf of
+                  HitMonster -> return $ if hitSomething then True
+                                                         else False
+                  _ -> return False
+
   updateCurrentLevel
   updateInventoryIfNecessary
   -- Did it actually move where we wanted it to?
   newCoords <- getCoordsM
   case () of _
+               | cancel == True -> return (Right Cancel)
                | newCoords == coords ->
-                   forbidMovementFromM coords target >> return False
-               | newCoords == target -> return True
-               | otherwise           -> return False
+                   forbidMovementFromM coords target >> return (Left False)
+               | newCoords == target -> return (Left True)
+               | otherwise           -> return (Left False)
 
 moveLetter :: (Int, Int) -> (Int, Int) -> Char
 moveLetter (x1, y1) (x2, y2)

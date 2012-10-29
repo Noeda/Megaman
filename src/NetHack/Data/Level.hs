@@ -38,10 +38,13 @@ module NetHack.Data.Level
    levelID,
    findClosedDoors,
    findDownstairs,
-   maybeMarkAsOpenDoor)
+   maybeMarkAsOpenDoor,
+   distance,
+   hostileOrUnknownMonsters,
+   monster)
   where
 
-import NetHack.Data.MonsterInstance(MonsterInstance)
+import NetHack.Data.MonsterInstance(MonsterInstance, isHostile)
 import Terminal.Data(Attributes, Color(..), foreground, bold, defaultAttributes)
 
 import Data.Array(Array, array)
@@ -443,4 +446,20 @@ setStairsLevel el id = setStairsLevel2 (feature el) id
     setFeature el (Just $ DownLadder $ Just id)
   setStairsLevel2 (Just (DownStairs _)) id =
     setFeature el (Just $ DownStairs $ Just id)
+
+distance :: Coords -> Coords -> Int
+distance (x1,y1) (x2,y2) = max (abs (x2-x1)) (abs (y2-y1))
+
+-- Returns hostile monsters and monsters whose hostility isn't known
+hostileOrUnknownMonsters :: Level -> [(Coords, MonsterInstance)]
+hostileOrUnknownMonsters lev =
+  map (\(coords, element) ->
+          (coords, fromJust $ monster element)) monsterElements
+  where
+  monsterElements =
+    filter (\(_, element) ->
+               let mon = monster element
+                in mon /= Nothing &&
+                   isHostile (fromJust mon) /= Just False) $
+           (M.toList . elements) lev
 

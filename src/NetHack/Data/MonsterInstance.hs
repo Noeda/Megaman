@@ -1,11 +1,15 @@
 module NetHack.Data.MonsterInstance
   (MonsterInstance(),
+   MonsterAttributes(),
    monsterNameTrim,
    monsterByName,
    newMonsterInstance,
    freshMonsterInstance,
    defaultMonsterAttributes,
-   monsterByAppearance)
+   monsterByAppearance,
+   setAttributes,
+   isHostile,
+   respectsElbereth)
   where
 
 import qualified Data.Map as M
@@ -13,6 +17,8 @@ import qualified Data.Map as M
 import Data.Foldable(foldl')
 
 import NetHack.Data.Appearance
+
+import Control.Monad
 
 import qualified Data.ByteString.Char8 as B
 import qualified NetHack.Imported.MonsterData as MD
@@ -25,6 +31,16 @@ data MonsterAttributes = MonsterAttributes
 
 data MonsterInstance = MonsterInstance MD.Monster MonsterAttributes
                        deriving(Eq, Show)
+
+-- | 'isHostile' returns Just True if the monster is definitely hostile,
+-- Just False if the monster is definitely peaceful (or tame) and Nothing
+-- if hostility is not known.
+isHostile :: MonsterInstance -> Maybe Bool
+isHostile (MonsterInstance _ ma) = fmap not (peacefulness |^| tameness)
+               where
+                 peacefulness = peaceful ma
+                 tameness = tame ma
+                 (|^|) = liftM2 (||)
 
 newMonsterInstance :: MD.Monster -> MonsterAttributes -> MonsterInstance
 newMonsterInstance = MonsterInstance
@@ -110,5 +126,28 @@ monsterNameTrim monsname = peacefulness monsname
       case R.match "^(.+) called .+$" monsname of
         Just rest -> (rest,     MonsterAttributes (Just peaceful) (Just tame))
         Nothing   -> (monsname, MonsterAttributes (Just peaceful) (Just tame))
+
+setAttributes :: MonsterInstance -> MonsterAttributes -> MonsterInstance
+setAttributes (MonsterInstance mon _) newAttrs = MonsterInstance mon newAttrs
+
+class ElberethQueryable a where
+  respectsElbereth :: a -> Bool
+
+instance ElberethQueryable MonsterInstance where
+  respectsElbereth (MonsterInstance mon _) = respectsElbereth mon
+
+instance ElberethQueryable MD.Monster where
+  respectsElbereth mon
+    | tunedMoSymbol mon == '@' = False
+    | tunedMoSymbol mon == 'A' = False
+    | B.unpack (MD.moName mon) == "minotaur" = False
+    | B.unpack (MD.moName mon) == "shopkeeper" = False
+    | B.unpack (MD.moName mon) == "Death" = False
+    | B.unpack (MD.moName mon) == "Pestilence" = False
+    | B.unpack (MD.moName mon) == "Famine" = False
+    | otherwise = True
+
+instance ElberethQueryable ((Int, Int), MonsterInstance) where
+  respectsElbereth (_, mi) = respectsElbereth mi
 
 

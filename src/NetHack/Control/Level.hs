@@ -1,5 +1,6 @@
 module NetHack.Control.Level
-  (updateCurrentLevel)
+  (updateCurrentLevel,
+   hostileMonstersWithinRangeM)
   where
 
 import Data.Foldable(foldlM)
@@ -195,7 +196,7 @@ lookDownUpdate = do
                 itemizedElem = setItems oldElem $
                                  M.singleton Nothing $
                                  [canonicalizeItemName item]
-  
+
   oldElem <- getElementM coords
 
   case R.match "You see no objects here." firstLine :: [String] of
@@ -228,4 +229,37 @@ handleDungeonLevelTransition = do
 
   let newLevelNumber = dungeonLevel ns
   when (oldLevelNumber /= newLevelNumber) applyTransition
+
+hostileMonstersWithinRangeM :: Int -> NHAction [(Coords, MI.MonsterInstance)]
+hostileMonstersWithinRangeM range = do
+  coords <- getCoordsM
+  hostiles <- hostileMonstersM
+  return $ filter (\(monstercoords, _) ->
+                    distance coords monstercoords <= range) hostiles
+
+hostileMonstersM :: NHAction [(Coords, MI.MonsterInstance)]
+hostileMonstersM = do
+  level <- getLevelM
+  let hostiles = hostileOrUnknownMonsters level
+      notDefinitelyHostiles = filter (\(_, hostile) ->
+                                       MI.isHostile hostile == Nothing)
+                                     hostiles
+
+  -- farlook those that may not actually be hostile
+  if notDefinitelyHostiles /= []
+    then mapM_ (\coords -> do result <- farLook coords
+                              level <- getLevelM
+                              let (name, attributes) = MI.monsterNameTrim name
+                                  (Just oldElem) = elemAt level coords
+                              putElementM (setMonsterAttrs oldElem attributes)
+                                          coords)
+               (map fst notDefinitelyHostiles)
+         >> hostileMonstersM
+    else return hostiles
+  where
+  setMonsterAttrs :: Element -> MI.MonsterAttributes -> Element
+  setMonsterAttrs e attrs =
+    let (Just mon) = monster e
+        newMon = MI.setAttributes mon attrs
+     in setMonsterInstance e (Just newMon)
 
